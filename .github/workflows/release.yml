@@ -32,7 +32,7 @@ jobs:
         echo "Version: $VERSION"
         
     - name: 📦 Restore dependencies
-      run: dotnet restore
+      run: dotnet restore AzureDriftDetector.csproj
       
     - name: 🏗️ Build release artifacts
       run: |
@@ -40,19 +40,19 @@ jobs:
         mkdir -p release-artifacts
         
         # Build for Windows x64
-        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/win-x64
+        dotnet publish AzureDriftDetector.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/win-x64
         zip -r release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-win-x64.zip ./temp/win-x64/
         
         # Build for Linux x64  
-        dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/linux-x64
+        dotnet publish AzureDriftDetector.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/linux-x64
         tar -czf release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-linux-x64.tar.gz -C ./temp/linux-x64 .
         
         # Build for macOS x64
-        dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/osx-x64
+        dotnet publish AzureDriftDetector.csproj -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/osx-x64
         zip -r release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-osx-x64.zip ./temp/osx-x64/
         
         # Create portable .NET version (requires .NET runtime)
-        dotnet publish -c Release --no-self-contained -o ./temp/portable
+        dotnet publish AzureDriftDetector.csproj -c Release --no-self-contained -o ./temp/portable
         zip -r release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-portable.zip ./temp/portable/
         
     - name: 📋 Generate release notes

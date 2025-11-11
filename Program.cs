@@ -16,31 +16,25 @@ class Program
         // Bicep file option
         var bicepFileOption = new Option<FileInfo>(
             name: "--bicep-file",
-            description: "Path to the Bicep template file")
-        {
-            IsRequired = true
-        };
+            description: "Path to the Bicep template file");
+        bicepFileOption.IsRequired = true;
 
         // Resource group option
         var resourceGroupOption = new Option<string>(
             name: "--resource-group", 
-            description: "Azure resource group name")
-        {
-            IsRequired = true
-        };
+            description: "Azure resource group name");
+        resourceGroupOption.IsRequired = true;
 
         // Output format option
         var outputFormatOption = new Option<OutputFormat>(
             name: "--output",
-            description: "Output format")
-        {
-            IsRequired = false
-        };
+            description: "Output format");
+        outputFormatOption.IsRequired = false;
         outputFormatOption.SetDefaultValue(OutputFormat.Console);
 
-        rootCommand.AddOption(bicepFileOption);
-        rootCommand.AddOption(resourceGroupOption);
-        rootCommand.AddOption(outputFormatOption);
+        rootCommand.Add(bicepFileOption);
+        rootCommand.Add(resourceGroupOption);
+        rootCommand.Add(outputFormatOption);
 
         rootCommand.SetHandler(async (bicepFile, resourceGroup, outputFormat) =>
         {

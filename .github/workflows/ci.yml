@@ -25,17 +25,17 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: 📦 Restore dependencies
-      run: dotnet restore
+      run: dotnet restore AzureDriftDetector.csproj
       
     - name: 🔧 Build project
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build AzureDriftDetector.csproj --no-restore --configuration Release
       
     - name: 🎯 Check code formatting
-      run: dotnet format --verify-no-changes --verbosity diagnostic
+      run: dotnet format AzureDriftDetector.csproj --verify-no-changes --verbosity diagnostic
       continue-on-error: true # Don't fail on formatting issues for now
       
     - name: 📋 Run code analysis
-      run: dotnet build --configuration Release --verbosity normal
+      run: dotnet build AzureDriftDetector.csproj --configuration Release --verbosity normal
       
   build-and-test:
     name: 🏗️ Build & Test
@@ -54,10 +54,10 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: 📦 Restore dependencies
-      run: dotnet restore
+      run: dotnet restore AzureDriftDetector.csproj
       
     - name: 🔧 Build project
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build AzureDriftDetector.csproj --no-restore --configuration Release
       
     - name: ✅ Build Status
       run: echo "🎉 Build successful on ${{ matrix.os }}!"
@@ -77,8 +77,8 @@ jobs:
         
     - name: 🔍 Run security analysis
       run: |
-        dotnet list package --vulnerable --include-transitive || true
-        dotnet list package --deprecated || true
+        dotnet list AzureDriftDetector.csproj package --vulnerable --include-transitive || true
+        dotnet list AzureDriftDetector.csproj package --deprecated || true
         
     - name: 🛡️ Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -134,18 +134,18 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: 📦 Restore dependencies
-      run: dotnet restore
+      run: dotnet restore AzureDriftDetector.csproj
       
     - name: 🏗️ Build for multiple platforms
       run: |
         # Build for Windows x64
-        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/win-x64
+        dotnet publish AzureDriftDetector.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/win-x64
         
         # Build for Linux x64
-        dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/linux-x64
+        dotnet publish AzureDriftDetector.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/linux-x64
         
         # Build for macOS x64
-        dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/osx-x64
+        dotnet publish AzureDriftDetector.csproj -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/osx-x64
         
     - name: 📋 Create build info
       run: |
