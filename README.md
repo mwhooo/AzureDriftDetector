@@ -26,10 +26,12 @@ The Azure Configuration Drift Detector helps maintain **IaC compliance** by iden
 - **ARM Expression Evaluation**: Properly resolves template variables and functions
 - **Conditional Deployment Support**: Respects `if` conditions in Bicep templates
 - **False Positive Filtering**: Intelligently ignores Azure-generated metadata while catching real drift
+- **Specialized Resource Handlers**: Custom comparison logic for NSG security rules, subnet arrays, and Log Analytics workspaces
+- **Enhanced Array Comparison**: Smart detection and comparison of different array types (security rules vs subnets)
 
 ### 📊 **Rich Reporting Options**
-- **Console**: Clean, colorized terminal output with emojis
-- **JSON**: Structured data for automation and CI/CD integration
+- **Console**: Clean, colorized terminal output with emojis and properly indented JSON formatting
+- **JSON**: Structured data for automation and CI/CD integration with human-readable formatting
 - **HTML**: Browser-friendly reports with styling
 - **Markdown**: Documentation-ready format
 
@@ -244,7 +246,26 @@ Advanced subnet analysis that:
 }
 ```
 
-## 🔧 Command Line Options
+## �️ Security & Quality Assurance
+
+### GitHub Advanced Security
+This project uses GitHub's security features to ensure code quality and security:
+
+- **CodeQL Analysis**: Automated security vulnerability scanning
+- **Dependency Scanning**: Monitors for vulnerable dependencies
+- **Secret Scanning**: Prevents accidental credential commits
+
+**Note**: For private repositories, GitHub Advanced Security requires enabling through repository settings. See [Security Setup Guide](docs/SECURITY-SETUP.md) for detailed instructions.
+
+### Automated CI/CD Pipeline
+Every push triggers comprehensive validation:
+- ✅ Cross-platform builds (Ubuntu, macOS, Windows)
+- ✅ Code quality and formatting checks
+- ✅ Bicep template validation
+- ✅ Security analysis with CodeQL
+- ✅ Automated dependency updates
+
+## �🔧 Command Line Options
 
 ```
 Usage: dotnet run -- [options]
@@ -356,3 +377,18 @@ The Azure Configuration Drift Detector represents a sophisticated approach to In
 ---
 
 **Built with passion for Infrastructure as Code and DevOps automation** 🚀
+
+## 📝 Changelog
+
+### v2.1.0 (2025-11-11) - Major Accuracy Improvements
+- ✨ **Enhanced Comparison Logic**: Specialized handlers for NSG security rules, subnet arrays, and Log Analytics workspaces
+- 🐛 **False Positive Elimination**: Intelligent filtering of Azure-generated metadata (provisioningState, etag, id, etc.)
+- 🎨 **Improved JSON Formatting**: Human-readable console output with proper indentation and formatting
+- 🔍 **Smart Array Detection**: Automatic detection and specialized comparison for different array types
+- ⚡ **Performance Optimizations**: More efficient comparison algorithms for complex nested objects
+- 📊 **Enhanced Reporting**: Better formatting for console output with base JSON formatting
+- 🧪 **Comprehensive Testing**: Validated with real Azure resources across multiple resource types
+
+### Previous Versions
+- v2.0.0 - Initial stable release with multi-resource support
+- v1.x - Beta versions with basic drift detection capabilities
