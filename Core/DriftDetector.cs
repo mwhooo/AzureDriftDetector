@@ -1,0 +1,56 @@
+using AzureDriftDetector.Models;
+using AzureDriftDetector.Services;
+using Newtonsoft.Json;
+
+namespace AzureDriftDetector.Core;
+
+public class DriftDetector
+{
+    private readonly BicepService _bicepService;
+    private readonly AzureCliService _azureCliService;
+    private readonly ComparisonService _comparisonService;
+    private readonly ReportingService _reportingService;
+
+    public DriftDetector()
+    {
+        _bicepService = new BicepService();
+        _azureCliService = new AzureCliService();
+        _comparisonService = new ComparisonService();
+        _reportingService = new ReportingService();
+    }
+
+    public async Task<DriftDetectionResult> DetectDriftAsync(
+        FileInfo bicepFile, 
+        string resourceGroup, 
+        OutputFormat outputFormat = OutputFormat.Console)
+    {
+        Console.WriteLine($"🔍 Starting drift detection for resource group: {resourceGroup}");
+        Console.WriteLine($"📄 Using Bicep template: {bicepFile.FullName}");
+
+        try
+        {
+            // Step 1: Convert Bicep to ARM JSON template
+            Console.WriteLine("⚙️  Converting Bicep template to ARM JSON...");
+            var expectedTemplate = await _bicepService.ConvertBicepToArmAsync(bicepFile.FullName);
+
+            // Step 2: Query live Azure resources
+            Console.WriteLine("☁️  Querying live Azure resources...");
+            var liveResources = await _azureCliService.GetResourcesAsync(resourceGroup);
+
+            // Step 3: Compare expected vs actual
+            Console.WriteLine("🔄 Comparing expected configuration with live resources...");
+            var result = _comparisonService.CompareResources(expectedTemplate, liveResources);
+
+            // Step 4: Generate report
+            Console.WriteLine("📊 Generating drift report...");
+            await _reportingService.GenerateReportAsync(result, outputFormat);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error during drift detection: {ex.Message}");
+            throw;
+        }
+    }
+}
