@@ -19,6 +19,7 @@ on:
 permissions:
   contents: read
   issues: write
+  id-token: write  # Required for OIDC authentication
 
 jobs:
   monitor-drift:
