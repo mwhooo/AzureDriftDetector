@@ -27,33 +27,41 @@ public class ReportingService
 
     private void GenerateConsoleReport(DriftDetectionResult result)
     {
+        bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
+        
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
-        Console.WriteLine("🔍 AZURE CONFIGURATION DRIFT DETECTION REPORT");
+        Console.WriteLine($"{(simpleOutput ? "[DRIFT REPORT]" : "🔍")} AZURE CONFIGURATION DRIFT DETECTION REPORT");
         Console.WriteLine(new string('=', 60));
-        Console.WriteLine($"📅 Detection Time: {result.DetectedAt:yyyy-MM-dd HH:mm:ss} UTC");
-        Console.WriteLine($"📊 Summary: {result.Summary}");
+        Console.WriteLine($"{(simpleOutput ? "[TIME]" : "📅")} Detection Time: {result.DetectedAt:yyyy-MM-dd HH:mm:ss} UTC");
+        Console.WriteLine($"{(simpleOutput ? "[SUMMARY]" : "📊")} Summary: {result.Summary}");
         Console.WriteLine();
 
         if (!result.HasDrift)
         {
-            Console.WriteLine("✅ No configuration drift detected! All resources match their expected configuration.");
+            Console.WriteLine($"{(simpleOutput ? "[OK]" : "✅")} No configuration drift detected! All resources match their expected configuration.");
             return;
         }
 
-        Console.WriteLine($"❌ Configuration drift detected in {result.ResourceDrifts.Count} resource(s):");
+        Console.WriteLine($"{(simpleOutput ? "[DRIFT]" : "❌")} Configuration drift detected in {result.ResourceDrifts.Count} resource(s):");
         Console.WriteLine();
 
         foreach (var resourceDrift in result.ResourceDrifts)
         {
-            Console.WriteLine($"🔴 {resourceDrift.ResourceType} - {resourceDrift.ResourceName}");
+            Console.WriteLine($"{(simpleOutput ? "[RESOURCE]" : "🔴")} {resourceDrift.ResourceType} - {resourceDrift.ResourceName}");
             Console.WriteLine($"   Resource ID: {resourceDrift.ResourceId}");
             Console.WriteLine($"   Property Drifts: {resourceDrift.PropertyDrifts.Count}");
             Console.WriteLine();
 
             foreach (var propertyDrift in resourceDrift.PropertyDrifts)
             {
-                var icon = propertyDrift.Type switch
+                var icon = simpleOutput ? propertyDrift.Type switch
+                {
+                    DriftType.Missing => "[MISSING]",
+                    DriftType.Extra => "[EXTRA]", 
+                    DriftType.Modified => "[CHANGED]",
+                    _ => "[UNKNOWN]"
+                } : propertyDrift.Type switch
                 {
                     DriftType.Missing => "❌",
                     DriftType.Extra => "➕", 
@@ -73,29 +81,32 @@ public class ReportingService
 
     private async Task GenerateJsonReportAsync(DriftDetectionResult result)
     {
+        bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
         var json = JsonConvert.SerializeObject(result, Formatting.Indented);
         var fileName = $"drift-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json";
         
         await File.WriteAllTextAsync(fileName, json);
-        Console.WriteLine($"📄 JSON report saved to: {fileName}");
+        Console.WriteLine($"{(simpleOutput ? "[JSON]" : "📄")} JSON report saved to: {fileName}");
     }
 
     private async Task GenerateHtmlReportAsync(DriftDetectionResult result)
     {
+        bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
         var html = GenerateHtmlContent(result);
         var fileName = $"drift-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.html";
         
         await File.WriteAllTextAsync(fileName, html);
-        Console.WriteLine($"🌐 HTML report saved to: {fileName}");
+        Console.WriteLine($"{(simpleOutput ? "[HTML]" : "🌐")} HTML report saved to: {fileName}");
     }
 
     private async Task GenerateMarkdownReportAsync(DriftDetectionResult result)
     {
+        bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
         var markdown = GenerateMarkdownContent(result);
         var fileName = $"drift-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.md";
         
         await File.WriteAllTextAsync(fileName, markdown);
-        Console.WriteLine($"📝 Markdown report saved to: {fileName}");
+        Console.WriteLine($"{(simpleOutput ? "[MD]" : "📝")} Markdown report saved to: {fileName}");
     }
 
     private string GenerateHtmlContent(DriftDetectionResult result)

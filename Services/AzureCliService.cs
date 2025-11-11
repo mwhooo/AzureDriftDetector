@@ -85,7 +85,8 @@ public class AzureCliService
 
             if (process.ExitCode != 0)
             {
-                Console.WriteLine($"⚠️  Warning: Could not get details for resource {resourceId}: {error}");
+                bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
+                Console.WriteLine($"{(simpleOutput ? "[WARN]" : "⚠️")}  Warning: Could not get details for resource {resourceId}: {error}");
                 return null;
             }
 
@@ -101,7 +102,8 @@ public class AzureCliService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠️  Warning: Error getting resource details for {resourceId}: {ex.Message}");
+            bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
+            Console.WriteLine($"{(simpleOutput ? "[WARN]" : "⚠️")}  Warning: Error getting resource details for {resourceId}: {ex.Message}");
             return null;
         }
     }

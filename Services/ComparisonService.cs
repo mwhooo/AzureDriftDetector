@@ -25,8 +25,9 @@ public class ComparisonService
         {
             var resourceType = expectedResource["type"]?.ToString() ?? "";
             var resourceName = expectedResource["name"]?.ToString() ?? "";
+            bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
 
-            Console.WriteLine($"🔍 Checking {resourceType}/{resourceName}");
+            Console.WriteLine($"{(simpleOutput ? "[CHECK]" : "🔍")} Checking {resourceType}/{resourceName}");
 
             // Find matching live resource by type (since names might be parameterized in ARM templates)
             var matchingLiveResources = liveResources.Where(lr => 
@@ -38,7 +39,7 @@ public class ComparisonService
             {
                 // If there's only one resource of this type, assume it's a match
                 liveResource = matchingLiveResources.First();
-                Console.WriteLine($"✅ Found matching resource: {liveResource.Name}");
+                Console.WriteLine($"{(simpleOutput ? "[OK]" : "✅")} Found matching resource: {liveResource.Name}");
             }
             else if (matchingLiveResources.Count > 1)
             {
@@ -48,14 +49,14 @@ public class ComparisonService
                 
                 if (liveResource == null)
                 {
-                    Console.WriteLine($"⚠️  Multiple resources of type {resourceType} found, using first one: {matchingLiveResources.First().Name}");
+                    Console.WriteLine($"{(simpleOutput ? "[WARN]" : "⚠️")}  Multiple resources of type {resourceType} found, using first one: {matchingLiveResources.First().Name}");
                     liveResource = matchingLiveResources.First();
                 }
             }
 
             if (liveResource == null)
             {
-                Console.WriteLine($"❌ Resource not found in Azure: {resourceType}/{resourceName}");
+                Console.WriteLine($"{(simpleOutput ? "[MISSING]" : "❌")} Resource not found in Azure: {resourceType}/{resourceName}");
                 result.ResourceDrifts.Add(new ResourceDrift
                 {
                     ResourceType = resourceType,
@@ -78,12 +79,12 @@ public class ComparisonService
             var resourceDrift = CompareResourceProperties(expectedResource, liveResource);
             if (resourceDrift.HasDrift)
             {
-                Console.WriteLine($"⚠️  Drift detected in {resourceType}/{resourceName}");
+                Console.WriteLine($"{(simpleOutput ? "[DRIFT]" : "⚠️")}  Drift detected in {resourceType}/{resourceName}");
                 result.ResourceDrifts.Add(resourceDrift);
             }
             else
             {
-                Console.WriteLine($"✅ No drift detected in {resourceType}/{resourceName}");
+                Console.WriteLine($"{(simpleOutput ? "[OK]" : "✅")} No drift detected in {resourceType}/{resourceName}");
             }
         }
 

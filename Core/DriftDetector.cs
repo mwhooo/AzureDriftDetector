@@ -30,11 +30,12 @@ public class DriftDetector
         try
         {
             // Step 1: Convert Bicep to ARM JSON template
-            Console.WriteLine("⚙️  Converting Bicep template to ARM JSON...");
+            bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
+            Console.WriteLine($"{(simpleOutput ? "[BICEP]" : "⚙️")}  Converting Bicep template to ARM JSON...");
             var expectedTemplate = await _bicepService.ConvertBicepToArmAsync(bicepFile.FullName);
 
             // Step 2: Query live Azure resources
-            Console.WriteLine("☁️  Querying live Azure resources...");
+            Console.WriteLine($"{(simpleOutput ? "[AZURE]" : "☁️")}  Querying live Azure resources...");
             var liveResources = await _azureCliService.GetResourcesAsync(resourceGroup);
 
             // Step 3: Compare expected vs actual
