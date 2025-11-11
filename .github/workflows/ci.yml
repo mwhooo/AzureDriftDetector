@@ -85,8 +85,11 @@ jobs:
       with:
         languages: csharp
         
-    - name: 🔧 Autobuild
-      uses: github/codeql-action/autobuild@v3
+    - name: � Restore dependencies for analysis
+      run: dotnet restore AzureDriftDetector.csproj
+        
+    - name: 🔧 Build for analysis
+      run: dotnet build AzureDriftDetector.csproj --configuration Release --no-restore
       
     - name: 🔍 Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
