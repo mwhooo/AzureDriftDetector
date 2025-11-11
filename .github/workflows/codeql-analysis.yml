@@ -1,0 +1,58 @@
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 6 * * 1' # Run weekly on Mondays at 6 AM UTC
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: 🔍 CodeQL Analysis
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'csharp' ]
+
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ⚙️ Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: 🛡️ Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Override default queries with security-focused ones
+        queries: security-extended,security-and-quality
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore AzureDriftDetector.csproj
+
+    - name: 🔧 Build project
+      run: dotnet build AzureDriftDetector.csproj --configuration Release --no-restore
+
+    - name: 🔍 Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+
+    - name: 📊 Analysis Summary
+      if: success()
+      run: |
+        echo "🎉 CodeQL analysis completed successfully!"
+        echo "✅ Scanned C# codebase for security vulnerabilities"
+        echo "📋 Results uploaded to GitHub Security tab"
