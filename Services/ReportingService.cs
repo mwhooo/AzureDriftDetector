@@ -239,10 +239,24 @@ public class ReportingService
         {
             string str => $"\"{str}\"",
             List<object?> list when IsSubnetArray(list) => FormatSubnetArray(list),
-            Dictionary<string, object?> dict => JsonConvert.SerializeObject(dict, Formatting.Indented),
-            List<object?> list => JsonConvert.SerializeObject(list, Formatting.Indented),
+            Dictionary<string, object?> dict => FormatJsonWithIndentation(dict, 6),
+            List<object?> list => FormatJsonWithIndentation(list, 6),
             _ => value.ToString() ?? "null"
         };
+    }
+
+    private string FormatJsonWithIndentation(object obj, int baseIndent)
+    {
+        var json = JsonConvert.SerializeObject(obj, Formatting.Indented);
+        var lines = json.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        
+        // Add base indentation to each line (except the first one which is already positioned)
+        for (int i = 1; i < lines.Length; i++)
+        {
+            lines[i] = new string(' ', baseIndent) + lines[i];
+        }
+        
+        return string.Join(Environment.NewLine, lines);
     }
 
     private bool IsSubnetArray(List<object?> list)

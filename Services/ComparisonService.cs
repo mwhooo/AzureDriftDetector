@@ -206,6 +206,32 @@ public class ComparisonService
             return expectedDict["name"]?.ToString()?.Equals(actualDict["name"]?.ToString(), StringComparison.OrdinalIgnoreCase) ?? false;
         }
 
+        // Special handling for security rules arrays
+        if (expected is List<object?> expectedList && actual is List<object?> actualList)
+        {
+            // Check if this is a security rules array by examining the content
+            if (IsSecurityRulesArray(expectedList) || IsSecurityRulesArray(actualList))
+            {
+                return CompareSecurityRules(expectedList, actualList);
+            }
+            
+            // Check if this is a subnets array
+            if (IsSubnetsArray(expectedList) || IsSubnetsArray(actualList))
+            {
+                return CompareSubnetLists(expectedList, actualList);
+            }
+            
+            // For other arrays, fall back to default comparison
+        }
+
+        // Special handling for Log Analytics workspace features
+        if (expected is Dictionary<string, object?> expectedFeatures && 
+            actual is Dictionary<string, object?> actualFeatures &&
+            IsLogAnalyticsFeatures(expectedFeatures, actualFeatures))
+        {
+            return CompareLogAnalyticsFeatures(expectedFeatures, actualFeatures);
+        }
+
         // Use JSON serialization for deep comparison
         var expectedJson = Newtonsoft.Json.JsonConvert.SerializeObject(expected);
         var actualJson = Newtonsoft.Json.JsonConvert.SerializeObject(actual);
@@ -213,8 +239,242 @@ public class ComparisonService
         return expectedJson.Equals(actualJson, StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool CompareSecurityRules(List<object?> expected, List<object?> actual)
+    {
+        if (expected.Count != actual.Count) return false;
+
+        // Compare security rules by matching core properties
+        foreach (var expectedRule in expected)
+        {
+            if (!TryGetSecurityRuleProperties(expectedRule, out var expectedProps)) continue;
+            
+            var matchingActualRule = actual.FirstOrDefault(actualRule =>
+            {
+                if (!TryGetSecurityRuleProperties(actualRule, out var actualProps)) return false;
+                
+                // Match by name first
+                return expectedProps.ContainsKey("name") && actualProps.ContainsKey("name") &&
+                       expectedProps["name"]?.ToString()?.Equals(actualProps["name"]?.ToString(), StringComparison.OrdinalIgnoreCase) == true;
+            });
+
+            if (matchingActualRule == null) return false;
+
+            if (!TryGetSecurityRuleProperties(matchingActualRule, out var matchingActualProps)) return false;
+
+            // Compare core security rule properties
+            var coreProperties = new[] { "access", "direction", "priority", "protocol", 
+                                       "sourcePortRange", "destinationPortRange", 
+                                       "sourceAddressPrefix", "destinationAddressPrefix" };
+
+            foreach (var prop in coreProperties)
+            {
+                var expectedValue = GetSecurityRuleProperty(expectedProps, prop);
+                var actualValue = GetSecurityRuleProperty(matchingActualProps, prop);
+
+                if (!AreSecurityRuleValuesEqual(expectedValue, actualValue))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryGetSecurityRuleProperties(object? rule, out Dictionary<string, object?> properties)
+    {
+        properties = new Dictionary<string, object?>();
+
+        if (rule is Dictionary<string, object?> ruleDict)
+        {
+            // Extract name from root level
+            if (ruleDict.TryGetValue("name", out var name))
+            {
+                properties["name"] = name;
+            }
+
+            // Extract properties from properties sub-object
+            if (ruleDict.TryGetValue("properties", out var props) && props is Dictionary<string, object?> propsDict)
+            {
+                foreach (var prop in propsDict)
+                {
+                    properties[prop.Key] = prop.Value;
+                }
+            }
+            return true;
+        }
+
+        if (rule is JObject jRule)
+        {
+            properties = jRule.ToObject<Dictionary<string, object?>>() ?? new Dictionary<string, object?>();
+            
+            // Flatten properties sub-object
+            if (properties.TryGetValue("properties", out var props) && props is JObject propsJObj)
+            {
+                var propsDict = propsJObj.ToObject<Dictionary<string, object?>>();
+                if (propsDict != null)
+                {
+                    foreach (var prop in propsDict)
+                    {
+                        properties[prop.Key] = prop.Value;
+                    }
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    private object? GetSecurityRuleProperty(Dictionary<string, object?> ruleProps, string propertyName)
+    {
+        if (ruleProps.TryGetValue(propertyName, out var value))
+        {
+            return value;
+        }
+
+        // Also check in nested properties object
+        if (ruleProps.TryGetValue("properties", out var properties) && 
+            properties is Dictionary<string, object?> propsDict &&
+            propsDict.TryGetValue(propertyName, out var nestedValue))
+        {
+            return nestedValue;
+        }
+
+        return null;
+    }
+
+    private bool AreSecurityRuleValuesEqual(object? expected, object? actual)
+    {
+        if (expected == null && actual == null) return true;
+        if (expected == null || actual == null) return false;
+
+        // Convert both to strings for comparison (handles different numeric types)
+        var expectedStr = expected.ToString();
+        var actualStr = actual.ToString();
+
+        return expectedStr?.Equals(actualStr, StringComparison.OrdinalIgnoreCase) ?? false;
+    }
+
+    private bool IsLogAnalyticsFeatures(Dictionary<string, object?> expected, Dictionary<string, object?> actual)
+    {
+        // Check if this looks like a Log Analytics workspace features comparison
+        return expected.ContainsKey("enableLogAccessUsingOnlyResourcePermissions") ||
+               actual.ContainsKey("enableLogAccessUsingOnlyResourcePermissions") ||
+               actual.ContainsKey("legacy") ||
+               actual.ContainsKey("searchVersion");
+    }
+
+    private bool CompareLogAnalyticsFeatures(Dictionary<string, object?> expected, Dictionary<string, object?> actual)
+    {
+        // For Log Analytics features, only compare the properties we explicitly set in the template
+        // Ignore Azure-added defaults like legacy and searchVersion
+        
+        foreach (var expectedFeature in expected)
+        {
+            if (!actual.TryGetValue(expectedFeature.Key, out var actualValue))
+            {
+                return false; // Expected feature is missing
+            }
+
+            if (!AreEqual(expectedFeature.Value, actualValue))
+            {
+                return false; // Feature values don't match
+            }
+        }
+
+        // Don't fail for additional Azure-added features in actual that aren't in expected
+        return true;
+    }
+
+    private bool IsSecurityRulesArray(List<object?> list)
+    {
+        if (list.Count == 0) return false;
+        
+        // Check if the first item looks like a security rule
+        var firstItem = list.First();
+        if (firstItem is Dictionary<string, object?> dict)
+        {
+            return dict.ContainsKey("properties") && 
+                   (dict.ContainsKey("access") || HasSecurityRuleProperties(dict));
+        }
+        
+        if (firstItem is JObject jObj)
+        {
+            return jObj.ContainsKey("properties") &&
+                   (jObj.ContainsKey("access") || HasSecurityRuleProperties(jObj));
+        }
+        
+        return false;
+    }
+
+    private bool IsSubnetsArray(List<object?> list)
+    {
+        if (list.Count == 0) return false;
+        
+        // Check if the first item looks like a subnet
+        var firstItem = list.First();
+        if (firstItem is Dictionary<string, object?> dict)
+        {
+            return dict.ContainsKey("addressPrefix") || HasSubnetProperties(dict);
+        }
+        
+        if (firstItem is JObject jObj)
+        {
+            return jObj.ContainsKey("addressPrefix") || HasSubnetProperties(jObj);
+        }
+        
+        return false;
+    }
+
+    private bool HasSecurityRuleProperties(Dictionary<string, object?> dict)
+    {
+        if (dict.TryGetValue("properties", out var props) && props is Dictionary<string, object?> propsDict)
+        {
+            return propsDict.ContainsKey("access") || propsDict.ContainsKey("direction") || 
+                   propsDict.ContainsKey("protocol") || propsDict.ContainsKey("priority");
+        }
+        return false;
+    }
+
+    private bool HasSecurityRuleProperties(JObject jObj)
+    {
+        var props = jObj["properties"] as JObject;
+        if (props != null)
+        {
+            return props.ContainsKey("access") || props.ContainsKey("direction") || 
+                   props.ContainsKey("protocol") || props.ContainsKey("priority");
+        }
+        return false;
+    }
+
+    private bool HasSubnetProperties(Dictionary<string, object?> dict)
+    {
+        if (dict.TryGetValue("properties", out var props) && props is Dictionary<string, object?> propsDict)
+        {
+            return propsDict.ContainsKey("addressPrefix") || propsDict.ContainsKey("privateEndpointNetworkPolicies");
+        }
+        return dict.ContainsKey("addressPrefix");
+    }
+
+    private bool HasSubnetProperties(JObject jObj)
+    {
+        var props = jObj["properties"] as JObject;
+        if (props != null)
+        {
+            return props.ContainsKey("addressPrefix") || props.ContainsKey("privateEndpointNetworkPolicies");
+        }
+        return jObj.ContainsKey("addressPrefix");
+    }
+
     private bool CompareSubnetLists(List<object?> expected, List<object?> actual)
     {
+        // First check if there are extra subnets in actual that aren't in expected
+        if (actual.Count > expected.Count)
+        {
+            return false; // Extra subnets detected
+        }
+        
         // For subnet comparison, we want to match subnets by name and compare only core properties
         foreach (var expectedSubnet in expected)
         {

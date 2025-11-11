@@ -34,6 +34,13 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-04-01' = {
           addressPrefix: '10.0.0.0/24'
         }
       }
+      {
+        name: '${applicationName}-private-subnet'
+        properties: {
+          addressPrefix: '10.0.1.0/24'
+          privateEndpointNetworkPolicies: 'Disabled'
+        }
+      }
     ]
   }
   tags: {
@@ -127,6 +134,32 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-04-0
           destinationAddressPrefix: '*'
         }
       }
+      {
+        name: 'AllowHTTPS'
+        properties: {
+          priority: 110
+          access: 'Allow'
+          direction: 'Inbound'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+        }
+      }
+      {
+        name: 'DenyAllInbound'
+        properties: {
+          priority: 1000
+          access: 'Deny'
+          direction: 'Inbound'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+        }
+      }
     ]
   }
   tags: {
@@ -135,8 +168,30 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-04-0
   }
 }
 
+// Log Analytics Workspace for monitoring
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: '${applicationName}-law-${postsuffix}'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+    features: {
+      enableLogAccessUsingOnlyResourcePermissions: true
+    }
+  }
+  tags: {
+    Environment: environmentName
+    Application: applicationName
+    ResourceType: 'Monitoring'
+  }
+}
+
 // Outputs
 output virtualNetworkId string = virtualNetwork.id
 output storageAccountName string = storageAccount.name
 output keyVaultName string = keyVault.name
+output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
+output networkSecurityGroupId string = networkSecurityGroup.id
 //output appServicePlanId string = environmentName != 'prod' ? appServicePlan.id : ''
