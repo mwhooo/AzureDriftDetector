@@ -46,7 +46,7 @@ jobs:
 
     - name: Download Drift Detector
       run: |
-        curl -L -o detector https://github.com/mwhooo/DriftDectector/releases/latest/download/AzureDriftDetector-linux-x64
+        curl -L -o detector https://github.com/mwhooo/AzureDriftDetector/releases/latest/download/AzureDriftDetector-linux-x64
         chmod +x detector
 
     - name: Check Drift
