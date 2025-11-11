@@ -117,7 +117,7 @@ jobs:
         echo "EOF" >> $GITHUB_OUTPUT
         
     - name: 🚀 Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         name: Azure Configuration Drift Detector v${{ steps.version.outputs.version }}
         body: ${{ steps.changelog.outputs.release_notes }}
