@@ -91,7 +91,7 @@ jobs:
         dotnet list AzureDriftDetector.csproj package --deprecated || true
         
     - name: 🛡️ Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: csharp
       continue-on-error: true
@@ -103,7 +103,7 @@ jobs:
       run: dotnet build AzureDriftDetector.csproj --configuration Release --no-restore
       
     - name: 🔍 Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
       with:
         category: "/language:csharp"
       continue-on-error: true
