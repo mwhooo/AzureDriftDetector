@@ -1,0 +1,42 @@
+version: 2
+
+updates:
+  # .NET dependencies
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "mwhooo"
+    assignees:
+      - "mwhooo"
+    commit-message:
+      prefix: "📦"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "dotnet"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday" 
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "mwhooo"
+    assignees:
+      - "mwhooo"
+    commit-message:
+      prefix: "⚙️"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"

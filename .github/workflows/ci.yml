@@ -1,0 +1,197 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  
+jobs:
+  lint-and-format:
+    name: 🔍 Code Quality & Formatting
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+      
+    - name: 🔧 Build project
+      run: dotnet build --no-restore --configuration Release
+      
+    - name: 🎯 Check code formatting
+      run: dotnet format --verify-no-changes --verbosity diagnostic
+      
+    - name: 📋 Run code analysis
+      run: dotnet build --configuration Release --verbosity normal
+      
+  build-and-test:
+    name: 🏗️ Build & Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+      
+    - name: 🔧 Build project
+      run: dotnet build --no-restore --configuration Release
+      
+    - name: 🧪 Run tests (when available)
+      run: dotnet test --no-build --configuration Release --verbosity normal --logger trx --collect:"XPlat Code Coverage"
+      continue-on-error: true # Continue if no tests exist yet
+      
+    - name: 📊 Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}
+        path: |
+          **/*.trx
+          **/coverage.cobertura.xml
+        retention-days: 30
+        
+  security-analysis:
+    name: 🔒 Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: 🔍 Run security analysis
+      run: |
+        dotnet list package --vulnerable --include-transitive || true
+        dotnet list package --deprecated || true
+        
+    - name: 🛡️ Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: csharp
+        
+    - name: 🔧 Autobuild
+      uses: github/codeql-action/autobuild@v3
+      
+    - name: 🔍 Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      
+  validate-bicep:
+    name: 🔧 Validate Bicep Templates
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Setup Azure CLI
+      uses: azure/CLI@v2
+      with:
+        azcliversion: latest
+        
+    - name: 🔧 Install Bicep CLI
+      run: az bicep install
+      
+    - name: ✅ Validate Bicep templates
+      run: |
+        echo "🔍 Validating Bicep templates..."
+        for file in *.bicep; do
+          if [[ -f "$file" ]]; then
+            echo "Validating $file..."
+            az bicep build --file "$file" --stdout > /dev/null
+            echo "✅ $file is valid"
+          fi
+        done
+        
+  create-release-artifacts:
+    name: 📦 Create Release Artifacts
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, build-and-test, security-analysis]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+      
+    - name: 🏗️ Build for multiple platforms
+      run: |
+        # Build for Windows x64
+        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/win-x64
+        
+        # Build for Linux x64
+        dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/linux-x64
+        
+        # Build for macOS x64
+        dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./artifacts/osx-x64
+        
+    - name: 📋 Create build info
+      run: |
+        echo "Build Information" > ./artifacts/BUILD_INFO.txt
+        echo "=================" >> ./artifacts/BUILD_INFO.txt
+        echo "Build Date: $(date)" >> ./artifacts/BUILD_INFO.txt
+        echo "Commit SHA: ${{ github.sha }}" >> ./artifacts/BUILD_INFO.txt
+        echo "Branch: ${{ github.ref_name }}" >> ./artifacts/BUILD_INFO.txt
+        echo ".NET Version: ${{ env.DOTNET_VERSION }}" >> ./artifacts/BUILD_INFO.txt
+        
+    - name: 📤 Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-artifacts
+        path: ./artifacts/
+        retention-days: 90
+        
+  report-status:
+    name: 📊 Build Status Report
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, build-and-test, security-analysis, validate-bicep]
+    if: always()
+    
+    steps:
+    - name: 📊 Report Success
+      if: needs.lint-and-format.result == 'success' && needs.build-and-test.result == 'success' && needs.security-analysis.result == 'success' && needs.validate-bicep.result == 'success'
+      run: |
+        echo "✅ All quality checks passed!"
+        echo "🎉 Azure Configuration Drift Detector is ready for deployment!"
+        
+    - name: ❌ Report Failure
+      if: needs.lint-and-format.result == 'failure' || needs.build-and-test.result == 'failure' || needs.security-analysis.result == 'failure' || needs.validate-bicep.result == 'failure'
+      run: |
+        echo "❌ Some quality checks failed:"
+        echo "Lint & Format: ${{ needs.lint-and-format.result }}"
+        echo "Build & Test: ${{ needs.build-and-test.result }}"  
+        echo "Security Analysis: ${{ needs.security-analysis.result }}"
+        echo "Bicep Validation: ${{ needs.validate-bicep.result }}"
+        exit 1

@@ -1,0 +1,136 @@
+name: 🚀 Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags like v1.0.0
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  create-release:
+    name: 📦 Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch full history for changelog
+        
+    - name: ⚙️ Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: 📋 Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+      
+    - name: 🏗️ Build release artifacts
+      run: |
+        # Create output directory
+        mkdir -p release-artifacts
+        
+        # Build for Windows x64
+        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/win-x64
+        zip -r release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-win-x64.zip ./temp/win-x64/
+        
+        # Build for Linux x64  
+        dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/linux-x64
+        tar -czf release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-linux-x64.tar.gz -C ./temp/linux-x64 .
+        
+        # Build for macOS x64
+        dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o ./temp/osx-x64
+        zip -r release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-osx-x64.zip ./temp/osx-x64/
+        
+        # Create portable .NET version (requires .NET runtime)
+        dotnet publish -c Release --no-self-contained -o ./temp/portable
+        zip -r release-artifacts/AzureDriftDetector-${{ steps.version.outputs.version }}-portable.zip ./temp/portable/
+        
+    - name: 📋 Generate release notes
+      id: changelog
+      run: |
+        # Generate changelog since last tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "Generating changelog since $PREVIOUS_TAG"
+          CHANGELOG=$(git log --pretty=format:"- %s (%an)" $PREVIOUS_TAG..HEAD)
+        else
+          echo "No previous tag found, generating changelog from beginning"
+          CHANGELOG=$(git log --pretty=format:"- %s (%an)" HEAD)
+        fi
+        
+        # Create release notes
+        cat > release_notes.md << EOF
+        # Azure Configuration Drift Detector v${{ steps.version.outputs.version }}
+        
+        ## 🎯 What's New
+        
+        A sophisticated C# console application that detects configuration drift between Bicep/ARM templates and live Azure resources.
+        
+        ## 📋 Changes in this release
+        
+        $CHANGELOG
+        
+        ## 📦 Downloads
+        
+        Choose the appropriate package for your platform:
+        
+        - **Windows x64**: \`AzureDriftDetector-${{ steps.version.outputs.version }}-win-x64.zip\` (Self-contained executable)
+        - **Linux x64**: \`AzureDriftDetector-${{ steps.version.outputs.version }}-linux-x64.tar.gz\` (Self-contained executable)
+        - **macOS x64**: \`AzureDriftDetector-${{ steps.version.outputs.version }}-osx-x64.zip\` (Self-contained executable)
+        - **Portable**: \`AzureDriftDetector-${{ steps.version.outputs.version }}-portable.zip\` (Requires .NET 8 runtime)
+        
+        ## 🚀 Quick Start
+        
+        1. Download the appropriate package for your platform
+        2. Extract the archive
+        3. Run: \`./AzureDriftDetector --bicep-file template.bicep --resource-group myResourceGroup\`
+        
+        ## ✨ Key Features
+        
+        - 🔍 **Intelligent Drift Detection** - Property-level comparison with smart filtering
+        - 🧠 **Conditional Deployment Support** - Respects Bicep \`if\` conditions  
+        - 🔧 **Smart Subnet Analysis** - Detects service endpoints and NSG associations
+        - 📊 **Multi-Format Reporting** - Console, JSON, HTML, and Markdown output
+        - 🎛️ **Azure CLI Integration** - Seamless live resource querying
+        
+        ## 📚 Documentation
+        
+        Full documentation available in the [README.md](https://github.com/mwhooo/DriftDectector/blob/main/README.md)
+        
+        Built with ❤️ for DevOps teams practicing Infrastructure as Code!
+        EOF
+        
+        # Set output for GitHub release
+        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+        cat release_notes.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: 🚀 Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Azure Configuration Drift Detector v${{ steps.version.outputs.version }}
+        body: ${{ steps.changelog.outputs.release_notes }}
+        files: release-artifacts/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 📊 Release Summary
+      run: |
+        echo "🎉 Successfully created release v${{ steps.version.outputs.version }}!"
+        echo "📦 Release artifacts:"
+        ls -la release-artifacts/
+        echo ""
+        echo "🔗 Release URL: https://github.com/mwhooo/DriftDectector/releases/tag/v${{ steps.version.outputs.version }}"
