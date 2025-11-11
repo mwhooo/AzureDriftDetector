@@ -8,6 +8,9 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
 
+permissions:
+  contents: write
+
 jobs:
   create-release:
     name: 📦 Create Release
