@@ -1,22 +1,54 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AzureDriftDetector", "AzureDriftDetector.csproj", "{321EB496-7CE5-FA1C-EFAA-E641532EF269}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AzureDriftDetector.Tests", "tests\AzureDriftDetector.Tests.csproj", "{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Debug|x64.Build.0 = Debug|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Debug|x86.Build.0 = Debug|Any CPU
 		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Release|Any CPU.Build.0 = Release|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Release|x64.ActiveCfg = Release|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Release|x64.Build.0 = Release|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Release|x86.ActiveCfg = Release|Any CPU
+		{321EB496-7CE5-FA1C-EFAA-E641532EF269}.Release|x86.Build.0 = Release|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Debug|x64.Build.0 = Debug|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Debug|x86.Build.0 = Debug|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Release|x64.ActiveCfg = Release|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Release|x64.Build.0 = Release|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Release|x86.ActiveCfg = Release|Any CPU
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6E8E8FBE-3F9F-4E74-9744-D341569F2FBD} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D3A7D5B1-05A6-4753-B58F-8A3C666FDE33}
