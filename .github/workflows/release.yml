@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - 'v*' # Trigger on version tags like v1.0.0
+  workflow_dispatch: # Allow manual triggering
+    inputs:
+      version:
+        description: 'Release version (e.g., 2.2.0)'
+        required: true
+        default: '2.2.0'
+      create_tag:
+        description: 'Create git tag'
+        required: true
+        default: true
+        type: boolean
 
 env:
   DOTNET_VERSION: '8.0.x'
@@ -27,12 +38,26 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
-    - name: 📋 Extract version from tag
+    - name: 📋 Extract version
       id: version
       run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          echo "Using manual version: $VERSION"
+        else
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Using tag version: $VERSION"
+        fi
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"
+        
+    - name: 🏷️ Create git tag (if manual dispatch)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.create_tag == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+        git push origin "v${{ steps.version.outputs.version }}"
         
     - name: 📦 Restore dependencies
       run: dotnet restore AzureDriftDetector.csproj
@@ -109,7 +134,7 @@ jobs:
         
         ## 📚 Documentation
         
-        Full documentation available in the [README.md](https://github.com/mwhooo/DriftDectector/blob/main/README.md)
+        Full documentation available in the [README.md](https://github.com/mwhooo/AzureDriftDetector/blob/main/README.md)
         
         Built with ❤️ for DevOps teams practicing Infrastructure as Code!
         EOF
@@ -127,6 +152,7 @@ jobs:
         files: release-artifacts/*
         draft: false
         prerelease: false
+        tag_name: v${{ steps.version.outputs.version }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -136,4 +162,4 @@ jobs:
         echo "📦 Release artifacts:"
         ls -la release-artifacts/
         echo ""
-        echo "🔗 Release URL: https://github.com/mwhooo/DriftDectector/releases/tag/v${{ steps.version.outputs.version }}"
+        echo "🔗 Release URL: https://github.com/mwhooo/AzureDriftDetector/releases/tag/v${{ steps.version.outputs.version }}"
