@@ -232,7 +232,6 @@ public class AzureCliService
             };
 
             process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync();
             var error = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
 
