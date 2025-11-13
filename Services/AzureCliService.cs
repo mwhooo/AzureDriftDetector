@@ -12,7 +12,7 @@ public class AzureCliService
         try
         {
             // Query all resources in the resource group
-            var process = new Process
+            using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
@@ -64,7 +64,7 @@ public class AzureCliService
     {
         try
         {
-            var process = new Process
+            using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
@@ -217,7 +217,7 @@ public class AzureCliService
         
         try
         {
-            var process = new Process
+            using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
