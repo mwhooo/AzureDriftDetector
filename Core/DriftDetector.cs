@@ -77,13 +77,41 @@ public class DriftDetector
 
             return result;
         }
-        catch (Exception ex)
+        catch (FileNotFoundException ex)
         {
-            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Error during deployment: {ex.Message}");
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Bicep file not found: {ex.Message}");
             return new DeploymentResult
             {
                 Success = false,
-                ErrorMessage = ex.Message
+                ErrorMessage = $"Bicep file not found: {ex.Message}"
+            };
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Azure CLI error during deployment: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = $"Azure CLI error: {ex.Message}"
+            };
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Access denied during deployment: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = $"Access denied: {ex.Message}"
+            };
+        }
+        catch (Exception ex)
+        {
+            // Catch any other unexpected exceptions to ensure we always return a structured result
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Unexpected error during deployment: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = $"Unexpected error: {ex.Message}"
             };
         }
     }
