@@ -1,0 +1,488 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.38.33.27573",
+      "templateHash": "1110004701745137374"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "test"
+    },
+    "applicationName": {
+      "type": "string",
+      "defaultValue": "drifttest"
+    },
+    "suffixLength": {
+      "type": "int",
+      "defaultValue": 8,
+      "minValue": 5,
+      "maxValue": 13
+    }
+  },
+  "variables": {
+    "deploykeyvault": false,
+    "deploystorage": true,
+    "postsuffix": "[take(uniqueString(resourceGroup().id), parameters('suffixLength'))]",
+    "storageAccountName": "[format('{0}sa{1}', parameters('applicationName'), variables('postsuffix'))]",
+    "keyVaultName": "[format('{0}kv{1}', parameters('applicationName'), variables('postsuffix'))]",
+    "vnetName": "[format('{0}-vnet', parameters('applicationName'))]",
+    "subnetName": "[format('{0}-subnet', parameters('applicationName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-04-01",
+      "name": "[variables('vnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "10.0.0.0/24"
+            }
+          },
+          {
+            "name": "[format('{0}-private-subnet', parameters('applicationName'))]",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24",
+              "privateEndpointNetworkPolicies": "Disabled"
+            }
+          }
+        ]
+      },
+      "tags": {
+        "Environment": "[parameters('environmentName')]",
+        "Application": "[parameters('applicationName')]"
+      }
+    },
+    {
+      "condition": "[variables('deploykeyvault')]",
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "enabledForDeployment": false,
+        "enabledForTemplateDeployment": false,
+        "enabledForDiskEncryption": false,
+        "enableRbacAuthorization": true,
+        "publicNetworkAccess": "Enabled"
+      },
+      "tags": {
+        "Environment": "[parameters('environmentName')]",
+        "Application": "[parameters('applicationName')]",
+        "ResourceType": "Security"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}-asp', parameters('applicationName'))]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "F1",
+        "tier": "Free"
+      },
+      "properties": {
+        "reserved": false,
+        "zoneRedundant": false
+      },
+      "tags": {
+        "Environment": "[parameters('environmentName')]",
+        "Application": "[parameters('applicationName')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-04-01",
+      "name": "[format('{0}-nsg', parameters('applicationName'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowHTTP",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*"
+            }
+          },
+          {
+            "name": "AllowHTTPS",
+            "properties": {
+              "priority": 110,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*"
+            }
+          },
+          {
+            "name": "DenyAllInbound",
+            "properties": {
+              "priority": 1000,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      },
+      "tags": {
+        "Environment": "[parameters('environmentName')]",
+        "Application": "[parameters('applicationName')]"
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}-law-{1}', parameters('applicationName'), variables('postsuffix'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30,
+        "features": {
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        }
+      },
+      "tags": {
+        "Environment": "[parameters('environmentName')]",
+        "Application": "[parameters('applicationName')]",
+        "ResourceType": "Monitoring"
+      }
+    },
+    {
+      "condition": "[variables('deploystorage')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "storage-account-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "storageAccountName": {
+            "value": "[variables('storageAccountName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "skuName": {
+            "value": "Standard_LRS"
+          },
+          "kind": {
+            "value": "StorageV2"
+          },
+          "accessTier": {
+            "value": "Hot"
+          },
+          "allowBlobPublicAccess": {
+            "value": false
+          },
+          "allowSharedKeyAccess": {
+            "value": true
+          },
+          "minimumTlsVersion": {
+            "value": "TLS1_2"
+          },
+          "supportsHttpsTrafficOnly": {
+            "value": true
+          },
+          "networkAclsDefaultAction": {
+            "value": "Allow"
+          },
+          "virtualNetworkRules": {
+            "value": []
+          },
+          "ipRules": {
+            "value": []
+          },
+          "tags": {
+            "value": {
+              "Environment": "[parameters('environmentName')]",
+              "Application": "[parameters('applicationName')]",
+              "ResourceType": "Storage"
+            }
+          },
+          "isHnsEnabled": {
+            "value": false
+          },
+          "largeFileSharesState": {
+            "value": "Disabled"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "8027268506292326476"
+            }
+          },
+          "parameters": {
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the storage account"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for the storage account"
+              }
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "Standard_LRS",
+              "allowedValues": [
+                "Standard_LRS",
+                "Standard_GRS",
+                "Standard_RAGRS",
+                "Standard_ZRS",
+                "Premium_LRS",
+                "Premium_ZRS"
+              ],
+              "metadata": {
+                "description": "Storage account SKU"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "defaultValue": "StorageV2",
+              "allowedValues": [
+                "Storage",
+                "StorageV2",
+                "BlobStorage",
+                "FileStorage",
+                "BlockBlobStorage"
+              ],
+              "metadata": {
+                "description": "Storage account kind"
+              }
+            },
+            "accessTier": {
+              "type": "string",
+              "defaultValue": "Hot",
+              "allowedValues": [
+                "Hot",
+                "Cool"
+              ],
+              "metadata": {
+                "description": "Storage account access tier"
+              }
+            },
+            "allowBlobPublicAccess": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow public access to blobs"
+              }
+            },
+            "allowSharedKeyAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Allow shared key access"
+              }
+            },
+            "minimumTlsVersion": {
+              "type": "string",
+              "defaultValue": "TLS1_2",
+              "allowedValues": [
+                "TLS1_0",
+                "TLS1_1",
+                "TLS1_2"
+              ],
+              "metadata": {
+                "description": "Minimum TLS version"
+              }
+            },
+            "supportsHttpsTrafficOnly": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Enable HTTPS traffic only"
+              }
+            },
+            "networkAclsDefaultAction": {
+              "type": "string",
+              "defaultValue": "Allow",
+              "allowedValues": [
+                "Allow",
+                "Deny"
+              ],
+              "metadata": {
+                "description": "Network access configuration"
+              }
+            },
+            "virtualNetworkRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Virtual network rules"
+              }
+            },
+            "ipRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "IP rules for firewall"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags for the storage account"
+              }
+            },
+            "isHnsEnabled": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable hierarchical namespace (Data Lake Gen2)"
+              }
+            },
+            "largeFileSharesState": {
+              "type": "string",
+              "defaultValue": "Disabled",
+              "allowedValues": [
+                "Disabled",
+                "Enabled"
+              ],
+              "metadata": {
+                "description": "Large file shares state"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('storageAccountName')]",
+              "location": "[parameters('location')]",
+              "kind": "[parameters('kind')]",
+              "sku": {
+                "name": "[parameters('skuName')]"
+              },
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "accessTier": "[parameters('accessTier')]",
+                "allowBlobPublicAccess": "[parameters('allowBlobPublicAccess')]",
+                "allowSharedKeyAccess": "[parameters('allowSharedKeyAccess')]",
+                "minimumTlsVersion": "[parameters('minimumTlsVersion')]",
+                "supportsHttpsTrafficOnly": "[parameters('supportsHttpsTrafficOnly')]",
+                "isHnsEnabled": "[parameters('isHnsEnabled')]",
+                "largeFileSharesState": "[parameters('largeFileSharesState')]",
+                "networkAcls": {
+                  "defaultAction": "[parameters('networkAclsDefaultAction')]",
+                  "virtualNetworkRules": "[parameters('virtualNetworkRules')]",
+                  "ipRules": "[parameters('ipRules')]",
+                  "bypass": "AzureServices"
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account resource ID"
+              },
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name"
+              },
+              "value": "[parameters('storageAccountName')]"
+            },
+            "primaryEndpoints": {
+              "type": "object",
+              "metadata": {
+                "description": "Primary endpoints"
+              },
+              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-05-01').primaryEndpoints]"
+            },
+            "primaryBlobEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account primary blob endpoint"
+              },
+              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-05-01').primaryEndpoints.blob]"
+            },
+            "primaryFileEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account primary file endpoint"
+              },
+              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-05-01').primaryEndpoints.file]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "virtualNetworkId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[if(variables('deploystorage'), reference(resourceId('Microsoft.Resources/deployments', 'storage-account-deployment'), '2025-04-01').outputs.storageAccountName.value, '')]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-law-{1}', parameters('applicationName'), variables('postsuffix')))]"
+    },
+    "networkSecurityGroupId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-nsg', parameters('applicationName')))]"
+    }
+  }
+}

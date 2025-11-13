@@ -1,0 +1,139 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.38.33.27573",
+      "templateHash": "10083344930779803183"
+    }
+  },
+  "parameters": {
+    "vnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Virtual network name"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for the virtual network"
+      }
+    },
+    "addressSpaces": {
+      "type": "array",
+      "defaultValue": [
+        "10.0.0.0/16"
+      ],
+      "metadata": {
+        "description": "Address space for the virtual network"
+      }
+    },
+    "subnets": {
+      "type": "array",
+      "metadata": {
+        "description": "Subnets configuration"
+      }
+    },
+    "enableDdosProtection": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable DDoS protection"
+      }
+    },
+    "ddosProtectionPlanId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "DDoS protection plan resource ID (required if enableDdosProtection is true)"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags for the virtual network"
+      }
+    },
+    "dnsServers": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "DNS servers for the virtual network"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-04-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "copy": [
+          {
+            "name": "subnets",
+            "count": "[length(parameters('subnets'))]",
+            "input": {
+              "name": "[parameters('subnets')[copyIndex('subnets')].name]",
+              "properties": {
+                "addressPrefix": "[parameters('subnets')[copyIndex('subnets')].addressPrefix]",
+                "privateEndpointNetworkPolicies": "[coalesce(tryGet(parameters('subnets')[copyIndex('subnets')], 'privateEndpointNetworkPolicies'), 'Enabled')]",
+                "privateLinkServiceNetworkPolicies": "[coalesce(tryGet(parameters('subnets')[copyIndex('subnets')], 'privateLinkServiceNetworkPolicies'), 'Enabled')]",
+                "networkSecurityGroup": "[if(not(empty(coalesce(tryGet(parameters('subnets')[copyIndex('subnets')], 'networkSecurityGroupId'), ''))), createObject('id', parameters('subnets')[copyIndex('subnets')].networkSecurityGroupId), null())]",
+                "routeTable": "[if(not(empty(coalesce(tryGet(parameters('subnets')[copyIndex('subnets')], 'routeTableId'), ''))), createObject('id', parameters('subnets')[copyIndex('subnets')].routeTableId), null())]"
+              }
+            }
+          }
+        ],
+        "addressSpace": {
+          "addressPrefixes": "[parameters('addressSpaces')]"
+        },
+        "dhcpOptions": "[if(not(empty(parameters('dnsServers'))), createObject('dnsServers', parameters('dnsServers')), null())]",
+        "enableDdosProtection": "[parameters('enableDdosProtection')]",
+        "ddosProtectionPlan": "[if(and(parameters('enableDdosProtection'), not(empty(parameters('ddosProtectionPlanId')))), createObject('id', parameters('ddosProtectionPlanId')), null())]"
+      }
+    }
+  ],
+  "outputs": {
+    "vnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Virtual network resource ID"
+      },
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+    },
+    "vnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Virtual network name"
+      },
+      "value": "[parameters('vnetName')]"
+    },
+    "addressSpaces": {
+      "type": "array",
+      "metadata": {
+        "description": "Virtual network address space"
+      },
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2023-04-01').addressSpace.addressPrefixes]"
+    },
+    "subnets": {
+      "type": "array",
+      "metadata": {
+        "description": "Subnet details"
+      },
+      "copy": {
+        "count": "[length(parameters('subnets'))]",
+        "input": {
+          "name": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2023-04-01').subnets[copyIndex()].name]",
+          "id": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2023-04-01').subnets[copyIndex()].id]",
+          "addressPrefix": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2023-04-01').subnets[copyIndex()].properties.addressPrefix]"
+        }
+      }
+    }
+  }
+}

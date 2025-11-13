@@ -50,27 +50,29 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2023-04-01' = {
   
 }
 
-// Storage Account with conditional settings
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if (deploystorage) {
-  name: storageAccountName
-  location: location
-  sku: {
-    name: 'Standard_LRS'
-  }
-  kind: 'StorageV2'
-  properties: {
-    minimumTlsVersion: 'TLS1_2'
+// Storage Account using module
+module storageAccountModule 'bicep-modules/storage-account.bicep' = if (deploystorage) {
+  name: 'storage-account-deployment'
+  params: {
+    storageAccountName: storageAccountName
+    location: location
+    skuName: 'Standard_LRS'
+    kind: 'StorageV2'
+    accessTier: 'Hot'
     allowBlobPublicAccess: false
+    allowSharedKeyAccess: true
+    minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
-    networkAcls: {
-      defaultAction: 'Allow'
-      bypass: 'AzureServices'
+    networkAclsDefaultAction: 'Allow'
+    virtualNetworkRules: []
+    ipRules: []
+    tags: {
+      Environment: environmentName
+      Application: applicationName
+      ResourceType: 'Storage'
     }
-  }
-  tags: {
-    Environment: environmentName
-    Application: applicationName
-    ResourceType: 'Storage'
+    isHnsEnabled: false
+    largeFileSharesState: 'Disabled'
   }
 }
 
@@ -190,7 +192,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
 
 // Outputs
 output virtualNetworkId string = virtualNetwork.id
-output storageAccountName string = storageAccount.name
+output storageAccountName string = deploystorage ? storageAccountModule.outputs.storageAccountName : ''
 output keyVaultName string = keyVault.name
 output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
 output networkSecurityGroupId string = networkSecurityGroup.id
