@@ -401,3 +401,8 @@ drift-report-*.json
 drift-report-*.html
 drift-report-*.md
 !sample-drift-report.*
+
+# Bicep generated JSON files (ARM templates)
+*.bicep.json
+bicep-modules/*.json
+complex-template.json
