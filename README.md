@@ -35,6 +35,12 @@ The Azure Configuration Drift Detector helps maintain **IaC compliance** by iden
 - **HTML**: Browser-friendly reports with styling
 - **Markdown**: Documentation-ready format
 
+### 🔧 **Automatic Drift Remediation**
+- **Autofix Mode**: Automatically deploy Bicep template to fix detected drift with `--autofix` flag
+- **Smart Deployment**: Only deploys when actual drift is detected
+- **Safe Execution**: Provides detailed deployment feedback and error handling
+- **Deployment Tracking**: Generates unique deployment names with timestamps
+
 ### 🎛️ **Flexible Configuration**
 - **Template Support**: Native Bicep files with automatic ARM conversion
 - **Configurable Parameters**: Support for template parameters and variables
@@ -59,11 +65,17 @@ dotnet build
 # Detect drift using a Bicep template
 dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup
 
+# Detect drift and automatically fix it
+dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --autofix
+
 # Generate HTML report
 dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --output Html
 
 # Generate JSON report for automation
 dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --output Json
+
+# Use simple ASCII output for CI/CD environments
+dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --simple-output
 ```
 
 ## 📋 Example Scenarios
@@ -151,7 +163,47 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-04-0
    Actual:   "missing"
 ```
 
-### Scenario 5: Conditional Deployment Support
+### Scenario 5: Automatic Drift Remediation with --autofix
+**Template Definition:**
+```bicep
+resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
+  name: '${applicationName}-nsg'
+  properties: {
+    securityRules: [
+      {
+        name: 'AllowHTTP'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '80'
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 100
+        }
+      }
+    ]
+  }
+}
+```
+
+**Manual Change:** Added SSH rule via Azure Portal
+
+**Drift Detection with Autofix:**
+```bash
+dotnet run -- --bicep-file template.bicep --resource-group myRG --autofix
+```
+
+**Output:**
+```
+❌ Configuration drift detected!
+🔧 Attempting to fix drift by deploying template...
+🚀 Deploying Bicep template to resource group: myRG
+✅ Deployment completed successfully!
+✅ Drift has been automatically fixed!
+📦 Deployment Name: drift-autofix-20251113-150351
+```
+
+### Scenario 6: Conditional Deployment Support
 **Template Definition:**
 ```bicep
 var deployKeyVault = false
@@ -274,6 +326,8 @@ Options:
   --bicep-file <path>        Path to the Bicep template file (required)
   --resource-group <name>    Azure resource group name (required) 
   --output <format>          Output format: Console (default), Json, Html, Markdown
+  --autofix                  Automatically deploy template to fix detected drift
+  --simple-output           Use simple ASCII characters for CI/CD compatibility
   --help                     Show help information
 ```
 

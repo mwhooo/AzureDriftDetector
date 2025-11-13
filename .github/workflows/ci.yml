@@ -25,14 +25,14 @@ jobs:
       uses: actions/checkout@v5
       
     - name: ⚙️ Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: 📦 Restore dependencies
       run: dotnet restore AzureDriftDetector.csproj
       
-    - name: 🔧 Build project
+    - name: 🧪 Run tests
       run: dotnet build AzureDriftDetector.csproj --no-restore --configuration Release
       
     - name: 🎯 Check code formatting
@@ -54,7 +54,7 @@ jobs:
       uses: actions/checkout@v5
       
     - name: ⚙️ Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
@@ -81,7 +81,7 @@ jobs:
       uses: actions/checkout@v5
       
     - name: ⚙️ Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
@@ -149,7 +149,7 @@ jobs:
       uses: actions/checkout@v5
       
     - name: ⚙️ Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         

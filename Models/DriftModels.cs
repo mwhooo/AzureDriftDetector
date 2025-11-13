@@ -48,3 +48,11 @@ public class AzureResource
     public string Id { get; set; } = string.Empty;
     public Dictionary<string, object?> Properties { get; set; } = new();
 }
+
+public class DeploymentResult
+{
+    public bool Success { get; set; }
+    public string DeploymentName { get; set; } = string.Empty;
+    public string? ErrorMessage { get; set; }
+    public DateTime DeployedAt { get; set; } = DateTime.UtcNow;
+}

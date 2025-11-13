@@ -54,4 +54,65 @@ public class DriftDetector
             throw;
         }
     }
+
+    public async Task<DeploymentResult> DeployTemplateAsync(FileInfo bicepFile, string resourceGroup)
+    {
+        bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
+        
+        try
+        {
+            Console.WriteLine($"{(simpleOutput ? "[DEPLOY]" : "🚀")} Deploying Bicep template to resource group: {resourceGroup}");
+            Console.WriteLine($"{(simpleOutput ? "[FILE]" : "📄")} Template file: {bicepFile.FullName}");
+
+            var result = await _azureCliService.DeployBicepTemplateAsync(bicepFile.FullName, resourceGroup);
+            
+            if (result.Success)
+            {
+                Console.WriteLine($"{(simpleOutput ? "[SUCCESS]" : "✅")} Deployment completed successfully!");
+            }
+            else
+            {
+                Console.WriteLine($"{(simpleOutput ? "[FAILED]" : "❌")} Deployment failed!");
+            }
+
+            return result;
+        }
+        catch (FileNotFoundException ex)
+        {
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Bicep file not found: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = $"Bicep file not found: {ex.Message}"
+            };
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Azure CLI error during deployment: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = $"Azure CLI error: {ex.Message}"
+            };
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Access denied during deployment: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = $"Access denied: {ex.Message}"
+            };
+        }
+        catch (Exception ex)
+        {
+            // Catch any other unexpected exceptions to ensure we always return a structured result
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Unexpected error during deployment: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = $"Unexpected error: {ex.Message}"
+            };
+        }
+    }
 }

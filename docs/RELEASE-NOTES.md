@@ -1,5 +1,62 @@
 # Release Notes
 
+## Version 2.2.0 - Automatic Drift Remediation (2025-11-13)
+
+### 🎯 Summary
+This release introduces automatic drift remediation capabilities, allowing the tool to not only detect configuration drift but also automatically fix it by deploying the Bicep template.
+
+### ✨ New Features
+
+#### 🔧 Automatic Drift Remediation
+- **--autofix Flag**: New command-line option to enable automatic template deployment when drift is detected
+- **Smart Deployment Logic**: Only deploys when actual drift exists - no unnecessary deployments
+- **Deployment Tracking**: Generates unique deployment names with timestamps for audit trails
+- **Comprehensive Error Handling**: Detailed feedback on deployment success or failure
+
+#### 🎛️ Enhanced User Experience
+- **--simple-output Flag**: ASCII-only output mode perfect for CI/CD environments
+- **Improved Messaging**: Clear indicators when autofix mode is enabled
+- **Progress Indicators**: Real-time feedback during deployment operations
+- **Helpful Tips**: Suggests using --autofix when drift is detected but autofix is disabled
+
+#### 🚀 Azure CLI Integration
+- **Native Bicep Deployment**: Uses `az deployment group create` for reliable template deployment
+- **Proper Error Reporting**: Captures and displays Azure CLI deployment errors
+- **Exit Code Management**: Appropriate exit codes for automation and scripting
+
+### 🔧 Implementation Details
+
+#### New Components
+- **DeploymentResult Model**: Structured deployment outcome tracking
+- **DeployBicepTemplateAsync Method**: Azure CLI integration for template deployment
+- **DeployTemplateAsync Method**: High-level deployment orchestration in DriftDetector
+
+#### Workflow Enhancement
+1. **Drift Detection**: Unchanged - same reliable detection logic
+2. **Conditional Deployment**: New - only when `result.HasDrift == true` AND `--autofix` enabled
+3. **Deployment Execution**: New - deploys template and reports results
+4. **Verification**: Tool can re-run to verify drift resolution
+
+### 🎯 Use Cases
+
+#### DevOps Automation
+```bash
+# CI/CD pipeline step - detect and fix drift automatically
+dotnet run -- --bicep-file prod.bicep --resource-group prod-rg --autofix --simple-output
+```
+
+#### Manual Operations
+```bash
+# Interactive drift detection with optional remediation
+dotnet run -- --bicep-file template.bicep --resource-group dev-rg
+# Tool suggests: "💡 Use --autofix to automatically deploy template and fix drift."
+```
+
+#### Monitoring and Compliance
+- Scheduled drift detection with automatic remediation
+- Audit trail via deployment names and timestamps
+- Integration with monitoring systems via exit codes
+
 ## Version 2.1.0 - Major Accuracy Improvements (2025-11-11)
 
 ### 🎯 Summary
