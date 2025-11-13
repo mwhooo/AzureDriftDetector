@@ -1,100 +1,94 @@
-@description('Name of the storage account')
-param storageAccountName string
+// Type definitions
+@export()
+type StorageAccountSku = 'Standard_LRS' | 'Standard_GRS' | 'Standard_RAGRS' | 'Standard_ZRS' | 'Premium_LRS' | 'Premium_ZRS'
 
-@description('Location for the storage account')
-param location string = resourceGroup().location
+@export()
+type StorageAccountKind = 'Storage' | 'StorageV2' | 'BlobStorage' | 'FileStorage' | 'BlockBlobStorage'
 
-@description('Storage account SKU')
-@allowed([
-  'Standard_LRS'
-  'Standard_GRS'
-  'Standard_RAGRS'
-  'Standard_ZRS'
-  'Premium_LRS'
-  'Premium_ZRS'
-])
-param skuName string = 'Standard_LRS'
+@export()
+type AccessTier = 'Hot' | 'Cool'
 
-@description('Storage account kind')
-@allowed([
-  'Storage'
-  'StorageV2'
-  'BlobStorage'
-  'FileStorage'
-  'BlockBlobStorage'
-])
-param kind string = 'StorageV2'
+@export()
+type TlsVersion = 'TLS1_0' | 'TLS1_1' | 'TLS1_2'
 
-@description('Storage account access tier')
-@allowed([
-  'Hot'
-  'Cool'
-])
-param accessTier string = 'Hot'
+@export()
+type NetworkAction = 'Allow' | 'Deny'
 
-@description('Allow public access to blobs')
-param allowBlobPublicAccess bool = false
+@export()
+type EnableState = 'Disabled' | 'Enabled'
 
-@description('Allow shared key access')
-param allowSharedKeyAccess bool = true
+@export()
+type StorageAccountConfig = {
+  @description('Name of the storage account')
+  storageAccountName: string
+  
+  @description('Location for the storage account')
+  location: string?
+  
+  @description('Storage account SKU')
+  skuName: StorageAccountSku?
+  
+  @description('Storage account kind')
+  kind: StorageAccountKind?
+  
+  @description('Storage account access tier')
+  accessTier: AccessTier?
+  
+  @description('Allow public access to blobs')
+  allowBlobPublicAccess: bool?
+  
+  @description('Allow shared key access')
+  allowSharedKeyAccess: bool?
+  
+  @description('Minimum TLS version')
+  minimumTlsVersion: TlsVersion?
+  
+  @description('Enable HTTPS traffic only')
+  supportsHttpsTrafficOnly: bool?
+  
+  @description('Network access configuration')
+  networkAclsDefaultAction: NetworkAction?
+  
+  @description('Virtual network rules')
+  virtualNetworkRules: array?
+  
+  @description('IP rules for firewall')
+  ipRules: array?
+  
+  @description('Tags for the storage account')
+  tags: object?
+  
+  @description('Enable hierarchical namespace (Data Lake Gen2)')
+  isHnsEnabled: bool?
+  
+  @description('Large file shares state')
+  largeFileSharesState: EnableState?
+}
 
-@description('Minimum TLS version')
-@allowed([
-  'TLS1_0'
-  'TLS1_1'
-  'TLS1_2'
-])
-param minimumTlsVersion string = 'TLS1_2'
-
-@description('Enable HTTPS traffic only')
-param supportsHttpsTrafficOnly bool = true
-
-@description('Network access configuration')
-@allowed([
-  'Allow'
-  'Deny'
-])
-param networkAclsDefaultAction string = 'Allow'
-
-@description('Virtual network rules')
-param virtualNetworkRules array = []
-
-@description('IP rules for firewall')
-param ipRules array = []
-
-@description('Tags for the storage account')
-param tags object = {}
-
-@description('Enable hierarchical namespace (Data Lake Gen2)')
-param isHnsEnabled bool = false
-
-@description('Large file shares state')
-@allowed([
-  'Disabled'
-  'Enabled'
-])
-param largeFileSharesState string = 'Disabled'
+// Parameters
+@description('Storage account configuration')
+param storageAccountConfig StorageAccountConfig
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
-  name: storageAccountName
-  location: location
-  kind: kind
+  name: storageAccountConfig.storageAccountName
+  location: storageAccountConfig.?location ?? resourceGroup().location
+  kind: storageAccountConfig.?kind ?? 'StorageV2'
   sku: {
-    name: skuName
+    name: storageAccountConfig.?skuName ?? 'Standard_LRS'
   }
-  tags: tags
+  tags: storageAccountConfig.?tags ?? {}
   properties: {
-    accessTier: accessTier
-    allowBlobPublicAccess: allowBlobPublicAccess
-    allowSharedKeyAccess: allowSharedKeyAccess
-    minimumTlsVersion: minimumTlsVersion
-    supportsHttpsTrafficOnly: supportsHttpsTrafficOnly
-    isHnsEnabled: isHnsEnabled
-    largeFileSharesState: largeFileSharesState
+    accessTier: storageAccountConfig.?accessTier ?? 'Hot'
+    allowBlobPublicAccess: storageAccountConfig.?allowBlobPublicAccess ?? false
+    allowSharedKeyAccess: storageAccountConfig.?allowSharedKeyAccess ?? true
+    minimumTlsVersion: storageAccountConfig.?minimumTlsVersion ?? 'TLS1_2'
+    supportsHttpsTrafficOnly: storageAccountConfig.?supportsHttpsTrafficOnly ?? true
+    isHnsEnabled: storageAccountConfig.?isHnsEnabled ?? false
+    largeFileSharesState: storageAccountConfig.?largeFileSharesState ?? 'Disabled'
     networkAcls: {
-      defaultAction: networkAclsDefaultAction
-      virtualNetworkRules: virtualNetworkRules
-      ipRules: ipRules
+      defaultAction: storageAccountConfig.?networkAclsDefaultAction ?? 'Allow'
+      virtualNetworkRules: storageAccountConfig.?virtualNetworkRules ?? []
+      ipRules: storageAccountConfig.?ipRules ?? []
       bypass: 'AzureServices'
     }
   }

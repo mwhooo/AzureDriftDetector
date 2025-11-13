@@ -32,7 +32,7 @@ public class DriftDetector
             // Step 1: Convert Bicep to ARM JSON template
             bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
             Console.WriteLine($"{(simpleOutput ? "[BICEP]" : "⚙️")}  Converting Bicep template to ARM JSON...");
-            var expectedTemplate = await _bicepService.ConvertBicepToArmAsync(bicepFile.FullName);
+            var expectedTemplate = await _bicepService.ConvertBicepToArmAsync(bicepFile.FullName, resourceGroup);
 
             // Step 2: Query live Azure resources
             Console.WriteLine($"{(simpleOutput ? "[AZURE]" : "☁️")}  Querying live Azure resources...");

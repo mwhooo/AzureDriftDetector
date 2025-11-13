@@ -148,6 +148,42 @@ public class AzureCliService
         };
     }
 
+    private async Task<string> GetReferencedBicepFileAsync(string bicepparamFilePath)
+    {
+        try
+        {
+            // Read the bicepparam file to find the 'using' statement
+            var content = await File.ReadAllTextAsync(bicepparamFilePath);
+            var lines = content.Split('\n');
+            
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                if (trimmedLine.StartsWith("using "))
+                {
+                    // Extract the file path from the using statement
+                    var usingPart = trimmedLine.Substring(6).Trim(); // Remove "using "
+                    var filePath = usingPart.Trim('\'', '"'); // Remove quotes
+                    
+                    // If it's a relative path, make it relative to the bicepparam file
+                    if (!Path.IsPathRooted(filePath))
+                    {
+                        var bicepparamDir = Path.GetDirectoryName(bicepparamFilePath) ?? "";
+                        filePath = Path.Combine(bicepparamDir, filePath);
+                    }
+                    
+                    return filePath;
+                }
+            }
+            
+            throw new InvalidOperationException($"Could not find 'using' statement in bicepparam file: {bicepparamFilePath}");
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Error reading bicepparam file '{bicepparamFilePath}': {ex.Message}", ex);
+        }
+    }
+
     private static string GetAzureCLIPath()
     {
         // First, try to find az using 'where' command (most reliable on Windows)
@@ -217,12 +253,27 @@ public class AzureCliService
         
         try
         {
+            string arguments;
+            
+            // Check if this is a bicepparam file or regular bicep file
+            if (Path.GetExtension(bicepFilePath).ToLowerInvariant() == ".bicepparam")
+            {
+                // For bicepparam files, we need to get the referenced bicep file and use parameters
+                var referencedBicepFile = await GetReferencedBicepFileAsync(bicepFilePath);
+                arguments = $"deployment group create --resource-group \"{resourceGroup}\" --template-file \"{referencedBicepFile}\" --parameters \"{bicepFilePath}\" --name \"{deploymentName}\" --output json";
+            }
+            else
+            {
+                // Regular bicep file
+                arguments = $"deployment group create --resource-group \"{resourceGroup}\" --template-file \"{bicepFilePath}\" --name \"{deploymentName}\" --output json";
+            }
+            
             using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = GetAzureCLIPath(),
-                    Arguments = $"deployment group create --resource-group \"{resourceGroup}\" --template-file \"{bicepFilePath}\" --name \"{deploymentName}\" --output json",
+                    Arguments = arguments,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -232,8 +283,15 @@ public class AzureCliService
             };
 
             process.Start();
-            var error = await process.StandardError.ReadToEndAsync();
+            
+            // Read both stdout and stderr to prevent buffer deadlock
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            
             await process.WaitForExitAsync();
+            
+            var output = await outputTask;
+            var error = await errorTask;
 
             if (process.ExitCode == 0)
             {

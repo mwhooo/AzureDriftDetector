@@ -77,7 +77,7 @@ class Program
                     return;
                 }
 
-                Console.WriteLine($"{(simpleOutput ? "[INFO]" : "🔍")} Azure Configuration Drift Detector v2.3.0");
+                Console.WriteLine($"{(simpleOutput ? "[INFO]" : "🔍")} Azure Configuration Drift Detector v3.0.0");
                 Console.WriteLine($"{(simpleOutput ? "[FILE]" : "📄")} Bicep Template: {bicepFile.Name}");
                 Console.WriteLine($"{(simpleOutput ? "[RG]" : "🏗️")}  Resource Group: {resourceGroup}");
                 Console.WriteLine($"{(simpleOutput ? "[OUTPUT]" : "📊")} Output Format: {outputFormat}");
