@@ -46,6 +46,8 @@ var vnetConfigWithCommon = union(vnetConfig, {location: location, tags: tags})
 var nsgConfigWithCommon = union(nsgConfig, {location: location, tags: tags})
 var storageConfigWithCommon = union(storageConfig, {location: location, tags: tags, storageAccountName: '${storageConfig.storageAccountName}${uniqueSuffix}'})
 var appServicePlanConfigWithCommon = union(appServicePlanConfig, {location: location, tags: tags})
+var logAnalyticsConfigWithCommon = logAnalyticsConfig != null ? union(logAnalyticsConfig!, {location: location, tags: tags, name: '${logAnalyticsConfig!.name}-${uniqueSuffix}'}) : null
+var keyVaultConfigWithCommon = keyVaultConfig != null ? union(keyVaultConfig!, {location: location, tags: tags, name: '${keyVaultConfig!.name}${uniqueSuffix}'}) : null
 
 // Virtual Network Module
 module vnetModule 'bicep-modules/virtual-network.bicep' = {
@@ -79,44 +81,28 @@ module appServicePlanModule 'bicep-modules/app-service-plan.bicep' = {
   }
 }
 
-// Log Analytics Workspace Module
-// module logAnalyticsModule 'bicep-modules/log-analytics-workspace.bicep' = {
-//   name: 'log-analytics-deployment'
-//   params: {
-//     workspaceName: '${logAnalyticsConfig.name}-${uniqueSuffix}'
-//     location: location
-//     skuName: logAnalyticsConfig.sku
-//     retentionInDays: logAnalyticsConfig.retentionInDays
-//     enableLogAccessUsingOnlyResourcePermissions: logAnalyticsConfig.enableLogAccessUsingOnlyResourcePermissions
-//     tags: tags
-//   }
-// }
+//Log Analytics Workspace Module
+module logAnalyticsModule 'bicep-modules/log-analytics-workspace.bicep' = if (logAnalyticsConfig != null) {
+  name: 'log-analytics-deployment'
+  params: {
+    logAnalyticsConfig: logAnalyticsConfigWithCommon!
+  }
+}
 
-// // Key Vault Module (conditional)
-// module keyVaultModule 'bicep-modules/key-vault.bicep' = if (deployKeyVault && keyVaultConfig != null) {
-//   name: 'key-vault-deployment'
-//   params: {
-//     keyVaultName: '${keyVaultConfig!.name}${uniqueSuffix}'
-//     location: location
-//     sku: {
-//       family: keyVaultConfig!.skuFamily
-//       name: keyVaultConfig!.skuName
-//     }
-//     enabledForDeployment: keyVaultConfig!.enabledForDeployment
-//     enabledForTemplateDeployment: keyVaultConfig!.enabledForTemplateDeployment
-//     enabledForDiskEncryption: keyVaultConfig!.enabledForDiskEncryption
-//     enableRbacAuthorization: keyVaultConfig!.enableRbacAuthorization
-//     publicNetworkAccess: keyVaultConfig!.publicNetworkAccess
-//     tags: tags
-//   }
-// }
+// Key Vault Module (conditional)
+module keyVaultModule 'bicep-modules/key-vault.bicep' = if (deployKeyVault && keyVaultConfig != null) {
+  name: 'key-vault-deployment'
+  params: {
+    keyVaultConfig: keyVaultConfigWithCommon!
+  }
+}
 
 // Outputs
 output vnetId string = vnetModule.outputs.vnetId
 output storageAccountName string = deployStorage ? storageModule!.outputs.storageAccountName : ''
 output appServicePlanId string = appServicePlanModule.outputs.appServicePlanId
-//output logAnalyticsWorkspaceId string = logAnalyticsModule.outputs.workspaceId
-//output keyVaultName string = deployKeyVault && keyVaultConfig != null ? keyVaultModule!.outputs.keyVaultName : ''
+output logAnalyticsWorkspaceId string = logAnalyticsConfig != null ? logAnalyticsModule!.outputs.workspaceId : ''
+output keyVaultName string = deployKeyVault && keyVaultConfig != null ? keyVaultModule!.outputs.keyVaultName : ''
 output nsgId string = nsgModule.outputs.nsgId
 output environmentName string = environmentName
 output applicationName string = applicationName

@@ -1,6 +1,5 @@
 using AzureDriftDetector.Models;
 using AzureDriftDetector.Services;
-using Newtonsoft.Json;
 
 namespace AzureDriftDetector.Core;
 
@@ -29,17 +28,17 @@ public class DriftDetector
 
         try
         {
-            // Step 1: Convert Bicep to ARM JSON template
+            // Step 1: Convert Bicep to ARM JSON template and run what-if to detect drift
             bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
             Console.WriteLine($"{(simpleOutput ? "[BICEP]" : "⚙️")}  Converting Bicep template to ARM JSON...");
             var expectedTemplate = await _bicepService.ConvertBicepToArmAsync(bicepFile.FullName, resourceGroup);
 
-            // Step 2: Query live Azure resources
-            Console.WriteLine($"{(simpleOutput ? "[AZURE]" : "☁️")}  Querying live Azure resources...");
+            // Step 2: Analyze what-if results for drift detection
+            // Note: liveResources is only used for fallback if what-if is not available
             var liveResources = await _azureCliService.GetResourcesAsync(resourceGroup);
 
-            // Step 3: Compare expected vs actual
-            Console.WriteLine("🔄 Comparing expected configuration with live resources...");
+            // Step 3: Compare expected vs actual using what-if results
+            Console.WriteLine("🔄 Analyzing what-if results for configuration drift...");
             var result = _comparisonService.CompareResources(expectedTemplate, liveResources);
 
             // Step 4: Generate report

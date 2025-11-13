@@ -1271,9 +1271,13 @@ public class ComparisonService
         
         var lines = whatIfOutput.Split('\n');
         ResourceDrift? currentResourceDrift = null;
+        PropertyDrift? currentPropertyDrift = null;
+        var complexObjectDetails = new List<string>();
         
-        foreach (var line in lines)
+        for (int i = 0; i < lines.Length; i++)
         {
+            var line = lines[i];
+            
             // Check if this is a resource line (starts with a symbol at the beginning or after 2 spaces)
             var trimmedLine = line.TrimStart();
             if (trimmedLine.Length == 0) continue;
@@ -1284,6 +1288,14 @@ public class ComparisonService
             if ((firstChar == '~' || firstChar == '+' || firstChar == '-' || firstChar == '=') && 
                 trimmedLine.Contains("Microsoft.") && trimmedLine.Contains('['))
             {
+                // Save previous property drift with details if exists
+                if (currentPropertyDrift != null && complexObjectDetails.Count > 0)
+                {
+                    currentPropertyDrift.ActualValue = string.Join("\n", complexObjectDetails);
+                    currentPropertyDrift = null;
+                    complexObjectDetails.Clear();
+                }
+                
                 // Save previous resource drift if exists
                 if (currentResourceDrift != null && currentResourceDrift.PropertyDrifts.Count > 0)
                 {
@@ -1354,15 +1366,57 @@ public class ComparisonService
                 // This is a property change line (indented under a modified resource)
                 // Property lines are indented with 4 spaces
                 var propertyLine = line.Substring(4); // Remove leading spaces
+                
                 if (propertyLine.Length > 0 && (propertyLine[0] == '~' || propertyLine[0] == '+' || propertyLine[0] == '-'))
                 {
+                    // Save previous property drift with details if exists
+                    if (currentPropertyDrift != null && complexObjectDetails.Count > 0)
+                    {
+                        var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
+                        currentPropertyDrift.ActualValue = formattedDetails;
+                        currentPropertyDrift = null;
+                        complexObjectDetails.Clear();
+                    }
+                    
                     var propertyDrift = ExtractPropertyDriftFromWhatIfLine(propertyLine);
                     if (propertyDrift != null)
                     {
                         currentResourceDrift.PropertyDrifts.Add(propertyDrift);
+                        
+                        // Check if this is a complex object/array that might have details in following lines
+                        if (propertyDrift.ActualValue?.ToString() == "differs in Azure (complex object/array)")
+                        {
+                            currentPropertyDrift = propertyDrift;
+                            complexObjectDetails.Clear();
+                            
+                            // Update expected value to be more descriptive for arrays
+                            if (propertyDrift.PropertyPath.Contains("securityRules") || 
+                                propertyDrift.PropertyPath.Contains("Rules"))
+                            {
+                                propertyDrift.ExpectedValue = "Template configuration";
+                            }
+                        }
+                    }
+                }
+                else if (currentPropertyDrift != null)
+                {
+                    // This might be a detail line for the current complex property (more deeply indented)
+                    // Collect these lines to show the actual changes
+                    var detailLine = line.Trim();
+                    if (!string.IsNullOrWhiteSpace(detailLine))
+                    {
+                        complexObjectDetails.Add(detailLine);
                     }
                 }
             }
+        }
+        
+        // Save any pending property drift with details
+        if (currentPropertyDrift != null && complexObjectDetails.Count > 0)
+        {
+            // Format the details with a helpful summary
+            var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
+            currentPropertyDrift.ActualValue = formattedDetails;
         }
         
         // Add the last resource drift if still pending
@@ -1502,5 +1556,118 @@ public class ComparisonService
         var propertyDriftCount = result.ResourceDrifts.Sum(rd => rd.PropertyDrifts.Count);
         
         return $"Configuration drift detected in {driftCount} resource(s) with {propertyDriftCount} property difference(s).";
+    }
+
+    private string FormatComplexObjectDetails(List<string> details, string propertyPath)
+    {
+        if (details.Count == 0) return "differs in Azure (complex object/array)";
+        
+        // Filter out structural characters like ]
+        var meaningfulDetails = details.Where(d => !string.IsNullOrWhiteSpace(d) && d.Trim() != "]" && d.Trim() != "[").ToList();
+        
+        if (meaningfulDetails.Count == 0) return "differs in Azure (complex object/array)";
+        
+        // Check if this is an array change with items being added/removed
+        var firstLine = meaningfulDetails.FirstOrDefault()?.Trim() ?? "";
+        
+        // Check for array index patterns like "+ 0:", "- 1:", "~ 2:", etc.
+        var indexPattern = System.Text.RegularExpressions.Regex.Match(firstLine, @"^([+\-~])\s*(\d+):\s*$");
+        
+        if (indexPattern.Success)
+        {
+            var symbol = indexPattern.Groups[1].Value[0];
+            var index = indexPattern.Groups[2].Value;
+            string action;
+            
+            if (symbol == '+')
+            {
+                action = "Adding";
+            }
+            else if (symbol == '-')
+            {
+                action = "Removing";
+            }
+            else // symbol == '~'
+            {
+                action = "Modifying";
+            }
+            
+            if (propertyPath.Contains("securityRules"))
+            {
+                var ruleIdentifier = $"security rule #{index}";
+                
+                // Try to extract rule name from the details
+                var namePattern = meaningfulDetails.FirstOrDefault(d => d.Contains("name:"));
+                if (namePattern != null)
+                {
+                    var parts = namePattern.Split('\"');
+                    if (parts.Length >= 2)
+                    {
+                        ruleIdentifier = $"security rule '{parts[1]}'";
+                    }
+                }
+                
+                // For modifications, extract what changed
+                if (symbol == '~')
+                {
+                    // Look for property changes (lines with =>)
+                    var propertyChanges = meaningfulDetails.Skip(1).Where(d => d.Contains("=>")).ToList();
+                    
+                    if (propertyChanges.Count == 1)
+                    {
+                        // Single property change
+                        var change = propertyChanges[0].Trim();
+                        if (change.StartsWith("~"))
+                        {
+                            change = change.Substring(1).Trim();
+                        }
+                        
+                        var arrowIndex = change.IndexOf("=>");
+                        if (arrowIndex > 0)
+                        {
+                            var colonIndex = change.IndexOf(":");
+                            if (colonIndex > 0 && colonIndex < arrowIndex)
+                            {
+                                var propName = change.Substring(0, colonIndex).Trim();
+                                var oldValue = change.Substring(colonIndex + 1, arrowIndex - colonIndex - 1).Trim();
+                                var newValue = change.Substring(arrowIndex + 2).Trim();
+                                return $"{action} {ruleIdentifier}: {propName} changed from {oldValue} to {newValue}";
+                            }
+                        }
+                    }
+                    else if (propertyChanges.Count > 1)
+                    {
+                        // Multiple properties changed
+                        var changeDescriptions = new List<string> { $"{action} {ruleIdentifier}:" };
+                        foreach (var change in propertyChanges)
+                        {
+                            var cleanChange = change.Trim();
+                            if (cleanChange.StartsWith("~")) cleanChange = cleanChange.Substring(1).Trim();
+                            changeDescriptions.Add($"  • {cleanChange}");
+                        }
+                        return string.Join("\n", changeDescriptions);
+                    }
+                }
+                
+                // For additions, show all details
+                if (symbol == '+')
+                {
+                    return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1).Select(d => $"  {d.Trim()}"));
+                }
+                
+                return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
+            }
+            else if (propertyPath.Contains("subnets"))
+            {
+                return $"{action} subnet #{index}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
+            }
+            else
+            {
+                return $"{action} item #{index}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
+            }
+        }
+        
+        // For other complex changes, just return the details
+        return "Azure configuration differs:\n" + string.Join("\n", meaningfulDetails);
     }
 }

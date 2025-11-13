@@ -235,9 +235,35 @@ public class ReportingService
     {
         if (value == null) return "null";
         
+        // Special handling for multiline strings (from what-if details)
+        if (value is string str)
+        {
+            if (str.Contains('\n'))
+            {
+                // Format multiline output with proper indentation
+                var lines = str.Split('\n');
+                var formattedLines = new List<string>();
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var line = lines[i].TrimEnd();
+                    if (string.IsNullOrWhiteSpace(line) || line.Trim() == "]" || line.Trim() == "[") continue;
+                    
+                    if (i == 0)
+                    {
+                        formattedLines.Add(line);
+                    }
+                    else
+                    {
+                        formattedLines.Add($"               {line}");
+                    }
+                }
+                return string.Join(Environment.NewLine, formattedLines);
+            }
+            return $"\"{str}\"";
+        }
+        
         return value switch
         {
-            string str => $"\"{str}\"",
             List<object?> list when IsSubnetArray(list) => FormatSubnetArray(list),
             Dictionary<string, object?> dict => FormatJsonWithIndentation(dict, 6),
             List<object?> list => FormatJsonWithIndentation(list, 6),
