@@ -1,6 +1,6 @@
 # Release Notes
 
-## Version 2.2.0 - Automatic Drift Remediation (2025-11-13)
+## Version 2.3.1 - Automatic Drift Remediation (2025-11-13)
 
 ### 🎯 Summary
 This release introduces automatic drift remediation capabilities, allowing the tool to not only detect configuration drift but also automatically fix it by deploying the Bicep template.
