@@ -211,6 +211,60 @@ public class AzureCliService
             "Download from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli");
     }
 
+    public async Task<DeploymentResult> DeployBicepTemplateAsync(string bicepFilePath, string resourceGroup)
+    {
+        var deploymentName = $"drift-autofix-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+        
+        try
+        {
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = GetAzureCLIPath(),
+                    Arguments = $"deployment group create --resource-group \"{resourceGroup}\" --template-file \"{bicepFilePath}\" --name \"{deploymentName}\" --output json",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    EnvironmentVariables = { ["PATH"] = Environment.GetEnvironmentVariable("PATH") ?? "" }
+                }
+            };
+
+            process.Start();
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode == 0)
+            {
+                return new DeploymentResult
+                {
+                    Success = true,
+                    DeploymentName = deploymentName
+                };
+            }
+            else
+            {
+                return new DeploymentResult
+                {
+                    Success = false,
+                    DeploymentName = deploymentName,
+                    ErrorMessage = error
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            return new DeploymentResult
+            {
+                Success = false,
+                DeploymentName = deploymentName,
+                ErrorMessage = ex.Message
+            };
+        }
+    }
+
     private static bool IsCommandAvailable(string command)
     {
         try

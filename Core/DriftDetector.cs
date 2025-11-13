@@ -54,4 +54,37 @@ public class DriftDetector
             throw;
         }
     }
+
+    public async Task<DeploymentResult> DeployTemplateAsync(FileInfo bicepFile, string resourceGroup)
+    {
+        bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
+        
+        try
+        {
+            Console.WriteLine($"{(simpleOutput ? "[DEPLOY]" : "🚀")} Deploying Bicep template to resource group: {resourceGroup}");
+            Console.WriteLine($"{(simpleOutput ? "[FILE]" : "📄")} Template file: {bicepFile.FullName}");
+
+            var result = await _azureCliService.DeployBicepTemplateAsync(bicepFile.FullName, resourceGroup);
+            
+            if (result.Success)
+            {
+                Console.WriteLine($"{(simpleOutput ? "[SUCCESS]" : "✅")} Deployment completed successfully!");
+            }
+            else
+            {
+                Console.WriteLine($"{(simpleOutput ? "[FAILED]" : "❌")} Deployment failed!");
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"{(simpleOutput ? "[ERROR]" : "❌")} Error during deployment: {ex.Message}");
+            return new DeploymentResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message
+            };
+        }
+    }
 }

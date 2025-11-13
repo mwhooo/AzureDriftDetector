@@ -39,12 +39,20 @@ class Program
         simpleOutputOption.IsRequired = false;
         simpleOutputOption.SetDefaultValue(false);
 
+        // Autofix option to deploy template when drift is detected
+        var autofixOption = new Option<bool>(
+            name: "--autofix",
+            description: "Automatically deploy the Bicep template to fix detected drift");
+        autofixOption.IsRequired = false;
+        autofixOption.SetDefaultValue(false);
+
         rootCommand.Add(bicepFileOption);
         rootCommand.Add(resourceGroupOption);
         rootCommand.Add(outputFormatOption);
         rootCommand.Add(simpleOutputOption);
+        rootCommand.Add(autofixOption);
 
-        rootCommand.SetHandler(async (bicepFile, resourceGroup, outputFormat, simpleOutput) =>
+        rootCommand.SetHandler(async (bicepFile, resourceGroup, outputFormat, simpleOutput, autofix) =>
         {
             try
             {
@@ -69,10 +77,14 @@ class Program
                     return;
                 }
 
-                Console.WriteLine($"{(simpleOutput ? "[INFO]" : "🔍")} Azure Configuration Drift Detector v1.0");
+                Console.WriteLine($"{(simpleOutput ? "[INFO]" : "🔍")} Azure Configuration Drift Detector v2.2.0");
                 Console.WriteLine($"{(simpleOutput ? "[FILE]" : "📄")} Bicep Template: {bicepFile.Name}");
                 Console.WriteLine($"{(simpleOutput ? "[RG]" : "🏗️")}  Resource Group: {resourceGroup}");
                 Console.WriteLine($"{(simpleOutput ? "[OUTPUT]" : "📊")} Output Format: {outputFormat}");
+                if (autofix)
+                {
+                    Console.WriteLine($"{(simpleOutput ? "[AUTOFIX]" : "🔧")} Autofix Mode: ENABLED");
+                }
                 Console.WriteLine();
 
                 var detector = new DriftDetector();
@@ -81,7 +93,29 @@ class Program
                 if (result.HasDrift)
                 {
                     Console.WriteLine($"{(simpleOutput ? "[DRIFT DETECTED]" : "❌")} Configuration drift detected!");
-                    Environment.Exit(1);
+                    
+                    if (autofix)
+                    {
+                        Console.WriteLine($"{(simpleOutput ? "[AUTOFIX]" : "🔧")} Attempting to fix drift by deploying template...");
+                        var deploymentResult = await detector.DeployTemplateAsync(bicepFile, resourceGroup);
+                        
+                        if (deploymentResult.Success)
+                        {
+                            Console.WriteLine($"{(simpleOutput ? "[FIXED]" : "✅")} Drift has been automatically fixed!");
+                            Console.WriteLine($"{(simpleOutput ? "[DEPLOYMENT]" : "📦")} Deployment Name: {deploymentResult.DeploymentName}");
+                            Environment.Exit(0);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"{(simpleOutput ? "[AUTOFIX FAILED]" : "❌")} Failed to fix drift: {deploymentResult.ErrorMessage}");
+                            Environment.Exit(1);
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{(simpleOutput ? "[TIP]" : "💡")} Use --autofix to automatically deploy template and fix drift.");
+                        Environment.Exit(1);
+                    }
                 }
                 else
                 {
@@ -99,7 +133,7 @@ class Program
                 Console.WriteLine($"{(simpleOutput ? "[TIP]" : "💡")} Ensure Azure CLI is installed and you're logged in with 'az login'");
                 Environment.Exit(1);
             }
-        }, bicepFileOption, resourceGroupOption, outputFormatOption, simpleOutputOption);
+        }, bicepFileOption, resourceGroupOption, outputFormatOption, simpleOutputOption, autofixOption);
 
         return await rootCommand.InvokeAsync(args);
     }
