@@ -613,19 +613,7 @@ This project demonstrates advanced techniques for:
 
 Perfect for CI/CD pipelines and infrastructure validation workflows!
 
-## 🏆 Success Stories
-
-> *"This drift detector has become an essential part of our Infrastructure as Code workflow. The intelligent subnet comparison and service endpoint detection have caught numerous manual configuration changes that could have caused security vulnerabilities."*
-> 
-> — DevOps Engineering Team
-
-The Azure Configuration Drift Detector represents a sophisticated approach to Infrastructure as Code compliance, combining intelligent comparison algorithms with practical DevOps workflows.
-
----
-
-**Built with passion for Infrastructure as Code and DevOps automation** 🚀
-
-## 📝 Changelog
+## 📄 Exit Codes
 
 ### v3.0.0 (2025-11-13) - Major Architecture Overhaul 🚀
 **Breaking Changes - Major Release**
