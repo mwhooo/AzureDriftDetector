@@ -1317,27 +1317,13 @@ public class ComparisonService
                 }
                 else if (firstChar == '+')
                 {
-                    // Missing resource
-                    result.ResourceDrifts.Add(new ResourceDrift
-                    {
-                        ResourceType = resourceInfo.type,
-                        ResourceName = resourceInfo.name,
-                        PropertyDrifts = new List<PropertyDrift>
-                        {
-                            new PropertyDrift
-                            {
-                                PropertyPath = "resource",
-                                ExpectedValue = "exists",
-                                ActualValue = "missing",
-                                Type = DriftType.Missing
-                            }
-                        }
-                    });
+                    // Resource will be created - this is NOT drift, it's part of the deployment
+                    // Skip it - no drift to report
                     currentResourceDrift = null;
                 }
                 else if (firstChar == '-')
                 {
-                    // Extra resource (not in template)
+                    // Extra resource (exists in Azure but not in template) - this IS drift
                     result.ResourceDrifts.Add(new ResourceDrift
                     {
                         ResourceType = resourceInfo.type,
@@ -1347,8 +1333,8 @@ public class ComparisonService
                             new PropertyDrift
                             {
                                 PropertyPath = "resource",
-                                ExpectedValue = "not exists",
-                                ActualValue = "exists",
+                                ExpectedValue = "not defined in template",
+                                ActualValue = "exists in Azure",
                                 Type = DriftType.Added
                             }
                         }
@@ -1436,6 +1422,7 @@ public class ComparisonService
         // Extract resource type and name from lines like:
         // "  ~ Microsoft.Storage/storageAccounts/mystorage [2023-05-01]"
         // "  + Microsoft.Storage/storageAccounts/newstorage [2023-05-01]"
+        // "  + Microsoft.ServiceBus/namespaces/drifttest-servicebus/queues/deadletter [2022-10-01-preview]"
         
         var parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length >= 2)
@@ -1445,9 +1432,25 @@ public class ComparisonService
             
             if (pathParts.Length >= 3)
             {
-                var resourceType = $"{pathParts[0]}/{pathParts[1]}";
-                var resourceName = pathParts[2];
-                return (resourceType, resourceName);
+                // Handle child resources (e.g., queues under Service Bus namespace)
+                // For child resources like: Microsoft.ServiceBus/namespaces/namespaceName/queues/queueName
+                // We want to extract: Microsoft.ServiceBus/namespaces/queues and the full identifier
+                if (pathParts.Length > 3)
+                {
+                    // This is a child resource
+                    // Format: Provider/ParentType/ParentName/ChildType/ChildName[/...]
+                    // We need: Provider/ParentType/ChildType as type, and ParentName/ChildName as identifier
+                    var resourceType = $"{pathParts[0]}/{pathParts[1]}/{pathParts[3]}";
+                    var resourceIdentifier = $"{pathParts[2]}/{pathParts[4]}";
+                    return (resourceType, resourceIdentifier);
+                }
+                else
+                {
+                    // Regular resource
+                    var resourceType = $"{pathParts[0]}/{pathParts[1]}";
+                    var resourceName = pathParts[2];
+                    return (resourceType, resourceName);
+                }
             }
         }
         

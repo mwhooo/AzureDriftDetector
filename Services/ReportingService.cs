@@ -86,7 +86,9 @@ public class ReportingService
         var fileName = $"drift-report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json";
         
         await File.WriteAllTextAsync(fileName, json);
-        Console.WriteLine($"{(simpleOutput ? "[JSON]" : "📄")} JSON report saved to: {fileName}");
+        // Print JSON to stdout so it can be captured by tools/scripts
+        Console.WriteLine(json);
+        Console.WriteLine($"\n{(simpleOutput ? "[JSON]" : "📄")} JSON report saved to: {fileName}");
     }
 
     private async Task GenerateHtmlReportAsync(DriftDetectionResult result)

@@ -91,16 +91,40 @@ jobs:
           const env = '${{ matrix.environment.name }}';
           const title = `🚨 Configuration Drift Detected in ${env.toUpperCase()}`;
           
-          let driftReport = 'No drift report available';
+          let driftSummary = 'No drift details available';
+          let driftDetails = '';
           try {
-            driftReport = fs.readFileSync('drift-report.json', 'utf8');
-            const report = JSON.parse(driftReport);
-            driftReport = `## Drift Summary\n${report.Summary}\n\n### Resources with Drift\n${report.ResourceDrifts.length} resource(s) affected`;
+            const reportJson = fs.readFileSync('drift-report.json', 'utf8');
+            const report = JSON.parse(reportJson);
+            
+            console.log('📊 Drift Report Summary:');
+            console.log(report.Summary);
+            
+            if (report.ResourceDrifts && report.ResourceDrifts.length > 0) {
+              console.log('\n📋 Resources with Drift:');
+              report.ResourceDrifts.forEach((resource, index) => {
+                console.log(`\n${index + 1}. ${resource.ResourceType} - ${resource.ResourceName}`);
+                if (resource.PropertyDrifts && resource.PropertyDrifts.length > 0) {
+                  resource.PropertyDrifts.forEach(prop => {
+                    const driftType = prop.Type === 0 ? 'Missing' : prop.Type === 1 ? 'Extra' : prop.Type === 2 ? 'Modified' : 'Added';
+                    console.log(`   - ${prop.PropertyPath} (${driftType})`);
+                    console.log(`     Expected: ${JSON.stringify(prop.ExpectedValue)}`);
+                    console.log(`     Actual: ${JSON.stringify(prop.ActualValue)}`);
+                  });
+                }
+              });
+            }
+            
+            driftSummary = report.Summary;
+            driftDetails = report.ResourceDrifts.map((r, i) => 
+              `${i + 1}. **${r.ResourceType}** - ${r.ResourceName}\n   - Property Drifts: ${r.PropertyDrifts.length}`
+            ).join('\n');
           } catch (e) {
             console.log('Could not read drift report:', e.message);
+            driftDetails = 'Failed to parse drift report details';
           }
           
-          const body = `Configuration drift detected in **${env}** environment.\n\n${driftReport}\n\n**Action Required:** Review and remediate the drift.\n\n[View Full Report](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+          const body = `Configuration drift detected in **${env}** environment.\n\n## Summary\n${driftSummary}\n\n## Resources Affected\n${driftDetails}\n\n**Action Required:** Review and remediate the drift.\n\n[View Full Report](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
           
           await github.rest.issues.create({
             owner: context.repo.owner,
