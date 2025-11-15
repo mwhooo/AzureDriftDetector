@@ -60,10 +60,13 @@ jobs:
       id: check
       continue-on-error: true
       run: |
-        if dotnet run --no-build --configuration Release --project AzureDriftDetector.csproj -- --bicep-file ${{ matrix.environment.template }} --resource-group ${{ matrix.environment.resource_group }} --output Json > drift-report.json; then
-          echo "drift=false" >> $GITHUB_OUTPUT
-        else
+        OUTPUT=$(dotnet run --no-build --configuration Release --project AzureDriftDetector.csproj -- --bicep-file ${{ matrix.environment.template }} --resource-group ${{ matrix.environment.resource_group }} --output Json 2>&1)
+        # Extract JSON from output (starts with { and ends with })
+        echo "$OUTPUT" | sed -n '/^{/,/^}/p' > drift-report.json
+        if [ -s drift-report.json ]; then
           echo "drift=true" >> $GITHUB_OUTPUT
+        else
+          echo "drift=false" >> $GITHUB_OUTPUT
         fi
     
     - name: Upload Drift Report
