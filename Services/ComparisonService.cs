@@ -1529,10 +1529,11 @@ public class ComparisonService
         }
         else if (symbol == '-')
         {
-            // Removed property
-            expectedValue = valuesPart.Trim('"');
-            actualValue = "removed";
-            driftType = DriftType.Missing;
+            // Removed property - this means the property exists in Azure but will be deleted by template
+            // So it's an "extra" property in Azure that's not wanted by the template
+            expectedValue = "not set";
+            actualValue = valuesPart.Trim('"');
+            driftType = DriftType.Added;
         }
         else
         {
