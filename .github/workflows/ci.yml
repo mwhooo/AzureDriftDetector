@@ -30,10 +30,10 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: 📦 Restore dependencies
-      run: dotnet restore
+      run: dotnet restore AzureDriftDetector.csproj
       
     - name: 🔧 Build solution
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build AzureDriftDetector.csproj --no-restore --configuration Release
       
     - name: 🧪 Run unit tests
       run: echo "⚠️ Tests temporarily disabled - fixing xUnit reference issues" 
@@ -49,11 +49,11 @@ jobs:
       continue-on-error: true
       
     - name: 🎯 Check code formatting
-      run: dotnet format --verify-no-changes --verbosity diagnostic
+      run: dotnet format AzureDriftDetector.csproj --verify-no-changes --verbosity diagnostic
       continue-on-error: true # Don't fail on formatting issues for now
       
     - name: 📋 Run code analysis
-      run: dotnet build --configuration Release --verbosity normal
+      run: dotnet build AzureDriftDetector.csproj --configuration Release --verbosity normal
       
   build-and-test:
     name: 🏗️ Build & Test
