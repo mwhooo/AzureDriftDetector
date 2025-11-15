@@ -60,34 +60,8 @@ jobs:
       id: check
       continue-on-error: true
       run: |
-        # Run with JSON output - capture all output first
-        dotnet run --no-build --configuration Release --project AzureDriftDetector.csproj -- --bicep-file ${{ matrix.environment.template }} --resource-group ${{ matrix.environment.resource_group }} --output Json > full-output.txt 2>&1 || true
-        
-        # Extract JSON from output (everything from the first '{' to the last '}')
-        if [ -f full-output.txt ]; then
-          # Find the JSON section - look for lines that start with '{' and end with '}'
-          sed -n '/^{/,/^}$/p' full-output.txt > drift-report.json
-          
-          # If that didn't work, try to extract JSON between { and }
-          if [ ! -s drift-report.json ]; then
-            awk '/^{/,/^}/' full-output.txt > drift-report.json
-          fi
-          
-          # Validate and parse JSON
-          if [ -s drift-report.json ] && jq empty drift-report.json 2>/dev/null; then
-            HAS_DRIFT=$(jq -r '.HasDrift' drift-report.json)
-            echo "drift=$HAS_DRIFT" >> $GITHUB_OUTPUT
-            echo "Successfully extracted drift report JSON"
-          else
-            echo "drift=false" >> $GITHUB_OUTPUT
-            echo "Warning: Failed to extract valid JSON from output"
-            echo "Full output:"
-            cat full-output.txt || echo "No output file found"
-          fi
-        else
-          echo "drift=false" >> $GITHUB_OUTPUT
-          echo "No output file generated"
-        fi
+        chmod +x .github/scripts/check-drift.sh
+        .github/scripts/check-drift.sh "${{ matrix.environment.template }}" "${{ matrix.environment.resource_group }}" "drift-report.json"
     
     - name: Upload Drift Report
       if: always()
@@ -101,97 +75,17 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          const fs = require('fs');
-          const env = '${{ matrix.environment.name }}';
-          const title = '🚨 Configuration Drift Detected in ' + env.toUpperCase();
+          const { createDriftIssue } = require('./.github/scripts/create-drift-issue.js');
+          const environment = '${{ matrix.environment.name }}';
           
-          let driftSummary = 'No drift details available';
-          let detailedReport = '';
-          
-          try {
-            const reportJson = fs.readFileSync('drift-report.json', 'utf8');
-            const report = JSON.parse(reportJson);
-            
-            console.log('📊 Successfully parsed drift report');
-            console.log('Summary:', report.Summary);
-            
-            driftSummary = report.Summary;
-            
-            if (report.ResourceDrifts && report.ResourceDrifts.length > 0) {
-              detailedReport = '\n## 📋 Detailed Drift Analysis\n\n';
-              
-              report.ResourceDrifts.forEach((resource, index) => {
-                detailedReport += '### ' + (index + 1) + '. ' + resource.ResourceType + '\n';
-                detailedReport += '**Resource Name:** `' + resource.ResourceName + '`\n\n';
-                
-                if (resource.PropertyDrifts && resource.PropertyDrifts.length > 0) {
-                  resource.PropertyDrifts.forEach(prop => {
-                    const driftTypeEmoji = {
-                      0: '❌', // Missing
-                      1: '➕', // Extra  
-                      2: '🔄', // Modified
-                      3: '🆕'  // Added
-                    };
-                    
-                    const driftTypeName = {
-                      0: 'Missing Property',
-                      1: 'Extra Property', 
-                      2: 'Modified Property',
-                      3: 'Added Property'
-                    };
-                    
-                    const emoji = driftTypeEmoji[prop.Type] || '🔍';
-                    const typeName = driftTypeName[prop.Type] || 'Changed';
-                    
-                    detailedReport += '**' + emoji + ' ' + typeName + ':** `' + prop.PropertyPath + '`\n';
-                    detailedReport += '- **Expected:** `' + prop.ExpectedValue + '`\n';
-                    detailedReport += '- **Actual:** `' + prop.ActualValue + '`\n\n';
-                  });
-                } else {
-                  detailedReport += '- No property drift details available\n\n';
-                }
-              });
-            } else {
-              detailedReport = '\n*No detailed drift information available*\n';
-            }
-            
-          } catch (e) {
-            console.log('Error parsing drift report:', e.message);
-            detailedReport = '\n*Failed to parse drift report details*\n';
-            
-            // Try to show raw content if JSON parsing failed
-            try {
-              const rawContent = fs.readFileSync('drift-report.json', 'utf8');
-              detailedReport += '\n## Raw Output\n```\n' + rawContent + '\n```\n';
-            } catch (readError) {
-              detailedReport += '\n*No drift report file available*\n';
-            }
-          }
-          
-          const timestamp = new Date().toISOString();
-          const issueBody = [
-            '🚨 **Configuration drift detected in `' + env + '` environment!**',
-            '',
-            '## 📊 Summary',
-            driftSummary,
-            detailedReport,
-            '',
-            '**🕒 Detected at:** ' + timestamp,
-            '**🔧 Action Required:** Review and remediate the configuration drift',
-            '**📄 [View Full Workflow Run](' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId + ')**',
-            '',
-            '### 💡 Remediation Options',
-            '1. **Manual Fix:** Update Azure resources to match the template',
-            '2. **Template Update:** Modify the Bicep template if the current state is desired',
-            '3. **Auto-fix:** Re-run with `--autofix` flag to automatically deploy template'
-          ].join('\n');
+          const issueData = createDriftIssue(environment, context);
           
           await github.rest.issues.create({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            title: title,
-            body: issueBody,
-            labels: ['drift-alert', env, 'needs-review']
+            title: issueData.title,
+            body: issueData.body,
+            labels: issueData.labels
           });
           
           console.log('✅ Created drift alert issue successfully');

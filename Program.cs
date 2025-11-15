@@ -92,10 +92,11 @@ class Program
                 {
                     Console.WriteLine($"{(simpleOutput ? "[AUTOFIX]" : "🔧")} Autofix Mode: ENABLED");
                 }
-                if (ignoreConfig?.Exists == true)
-                {
-                    Console.WriteLine($"{(simpleOutput ? "[IGNORE]" : "🔇")} Ignore Config: {ignoreConfig.Name}");
-                }
+                
+                // Show ignore config path being used
+                var ignoreConfigPath = ignoreConfig?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "drift-ignore.json");
+                var ignoreExists = File.Exists(ignoreConfigPath);
+                Console.WriteLine($"{(simpleOutput ? "[IGNORE]" : "🔇")} Ignore Config: {Path.GetFileName(ignoreConfigPath)} {(ignoreExists ? "(found)" : "(not found)")}");
                 Console.WriteLine();
 
                 var detector = new DriftDetector(ignoreConfig?.FullName);
