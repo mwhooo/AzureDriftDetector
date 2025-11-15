@@ -50,6 +50,17 @@ The Azure Configuration Drift Detector helps maintain **IaC compliance** by iden
 - **Optional Parameters**: Nullable fields with safe access operators and sensible defaults
 - **Parameter Merging**: Automatic merging of common parameters (location, tags) with config objects
 
+### 🔇 **Intelligent Drift Filtering**
+- **Noise Suppression**: Advanced ignore system to filter out Azure platform behaviors and false positives
+- **Resource-Specific Rules**: Target specific resource types with conditional filtering
+- **Global Patterns**: Apply ignore rules across all resource types for common Azure properties
+- **Conditional Logic**: Rules that apply only when specific conditions are met (SKU tier, resource kind, etc.)
+- **Configurable Paths**: Support for custom ignore configuration files via `--ignore-config`
+- **Pattern Matching**: Flexible property path matching with wildcards and nested object support
+- **Clear Feedback**: Visual indicators showing which drifts are being ignored and why
+
+📖 **[Complete Drift Ignore Documentation](docs/DRIFT-IGNORE.md)** - Comprehensive guide with examples and best practices
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -83,7 +94,11 @@ dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --out
 
 # Use custom ignore configuration to suppress Azure platform noise
 dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --ignore-config custom-ignore.json
+
+# See docs/DRIFT-IGNORE.md for comprehensive ignore configuration guide
 ```
+
+> 📖 **Need to configure drift ignore rules?** See our comprehensive [Drift Ignore Configuration Guide](docs/DRIFT-IGNORE.md) with examples for common Azure services and best practices.
 
 ## 📋 Example Scenarios
 
@@ -531,6 +546,10 @@ AzureDriftDetector/
 │   ├── app-service-plan.bicep
 │   ├── log-analytics-workspace.bicep
 │   └── key-vault.bicep
+├── docs/                          # Documentation
+│   ├── DRIFT-IGNORE.md           # Comprehensive drift ignore configuration guide
+│   ├── SECURITY-SETUP.md         # GitHub Advanced Security setup
+│   └── BICEP-BUILD.md            # Bicep module development guide
 ├── drift-ignore.json              # Default ignore configuration for Azure platform noise
 ├── main-template.bicep            # Main template importing module types
 ├── main-template.bicepparam       # Parameter configuration

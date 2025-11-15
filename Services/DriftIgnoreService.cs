@@ -17,8 +17,8 @@ public class DriftIgnoreService
     {
         try
         {
-            // Default to drift-ignore.json in the application directory
-            configPath ??= Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drift-ignore.json");
+            // Default to drift-ignore.json in the current working directory
+            configPath ??= Path.Combine(Directory.GetCurrentDirectory(), "drift-ignore.json");
             
             if (!File.Exists(configPath))
             {
@@ -200,7 +200,7 @@ public class DriftIgnoreService
     {
         try
         {
-            configPath ??= Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "drift-ignore.json");
+            configPath ??= Path.Combine(Directory.GetCurrentDirectory(), "drift-ignore.json");
             
             var json = JsonSerializer.Serialize(_ignoreConfig, new JsonSerializerOptions
             {
