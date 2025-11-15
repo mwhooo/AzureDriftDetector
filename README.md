@@ -80,6 +80,9 @@ dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --out
 
 # Generate JSON report for automation
 dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --output Json
+
+# Use custom ignore configuration to suppress Azure platform noise
+dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --ignore-config custom-ignore.json
 ```
 
 ## 📋 Example Scenarios
@@ -234,6 +237,111 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = if (deployKeyVault) {
 
 **Result:** When `deployKeyVault = false`, the detector **excludes** the Key Vault from drift analysis, preventing false positives.
 
+## 🔇 Drift Ignore Configuration
+
+The drift detection system includes a comprehensive ignore mechanism to suppress false positives caused by Azure platform behaviors beyond your control.
+
+### Purpose
+The ignore functionality is specifically designed to filter out "noise" from:
+- **Azure Resource Manager (ARM)** automatically adding platform-managed properties
+- **Azure Verified Modules (AVM)** modifying resources during or after deployment
+- **Azure platform services** updating timestamps, provisioning states, capacity metrics, or internal references
+- **Tier-specific behaviors** where Basic/Free tiers don't support certain properties that Premium tiers do
+- **Platform-managed state** that occurs outside of your Bicep template configuration and control
+
+### When to Use Ignore Patterns
+✅ **Use for platform behaviors you cannot control:**
+- Azure-managed timestamps (`lastModified`, `createdOn`, etc.)
+- Provisioning states that change automatically
+- Service tier limitations (Basic Service Bus not supporting advanced properties)
+- Azure policy enforcement adding required tags/properties
+- Auto-scaling metrics and capacity values
+
+❌ **Don't ignore legitimate configuration drift:**
+- Manual changes made via Azure Portal
+- Security configuration modifications
+- Resource property changes that should be in your template
+- Actual configuration drift that indicates compliance issues
+
+### Configuration Format
+Ignore patterns are defined in JSON configuration files (default: `drift-ignore.json`):
+
+```json
+{
+  "ignorePatterns": {
+    "description": "Suppress Azure platform noise and false positives",
+    "resources": [
+      {
+        "resourceType": "Microsoft.ServiceBus/namespaces/queues",
+        "reason": "Service Bus Basic tier doesn't support these properties - Azure platform behavior",
+        "ignoredProperties": [
+          "properties.autoDeleteOnIdle",
+          "properties.defaultMessageTimeToLive",
+          "properties.duplicateDetectionHistoryTimeWindow",
+          "properties.maxMessageSizeInKilobytes"
+        ]
+      }
+    ],
+    "globalPatterns": [
+      {
+        "propertyPattern": "properties.provisioningState", 
+        "reason": "Azure-managed provisioning state - not user configurable"
+      },
+      {
+        "propertyPattern": "properties.*Time*",
+        "reason": "Ignore all Azure-managed timestamp properties"
+      },
+      {
+        "propertyPattern": "properties.*time*",
+        "reason": "Ignore all Azure-managed lowercase timestamp properties"
+      }
+    ]
+  }
+}
+```
+
+### Command Line Usage
+```bash
+# Use default ignore config (drift-ignore.json in current directory)
+dotnet run -- --bicep-file template.bicep --resource-group myRG
+
+# Use custom ignore configuration file
+dotnet run -- --bicep-file template.bicep --resource-group myRG --ignore-config prod-ignore.json
+
+# Use ignore config from different directory
+dotnet run -- --bicep-file template.bicep --resource-group myRG --ignore-config configs/ignore.json
+```
+
+### Pattern Matching Rules
+- **Exact Match**: `"properties.autoDeleteOnIdle"` matches exactly that property path
+- **Wildcards**: `"properties.*Time*"` matches any property containing "Time" (case-sensitive)
+- **Resource Types**: Support wildcards like `"Microsoft.ServiceBus/*"` for all Service Bus resource types
+- **Global vs Resource-Specific**: Global patterns apply to all resources, resource-specific patterns only apply to matching resource types
+
+### Real-World Example
+Before implementing ignore patterns:
+```
+❌ Configuration drift detected in 13 resource(s) with 15 property difference(s).
+
+🔴 Microsoft.ServiceBus/namespaces/queues - myqueue
+   ❌ properties.autoDeleteOnIdle (Missing)
+      Expected: "PT10675199DT2H48M5.4775807S"
+      Actual:   null
+   ❌ properties.defaultMessageTimeToLive (Missing) 
+      Expected: "P14D"
+      Actual:   null
+   ❌ properties.maxMessageSizeInKilobytes (Missing)
+      Expected: 1024
+      Actual:   null
+```
+
+After implementing ignore patterns:
+```
+✅ No configuration drift detected!
+📋 Filtered 12 ignored property differences
+🎯 Focus on legitimate drift - noise suppressed
+```
+
 ## 🏗️ Advanced Features
 
 ### Azure What-If Integration
@@ -387,7 +495,7 @@ Every push triggers comprehensive validation:
 - ✅ Security analysis with CodeQL
 - ✅ Automated dependency updates
 
-## �🔧 Command Line Options
+## 🔧 Command Line Options
 
 ```
 Usage: dotnet run -- [options]
@@ -397,6 +505,7 @@ Options:
   --resource-group <name>    Azure resource group name (required) 
   --output <format>          Output format: Console (default), Json, Html, Markdown
   --autofix                  Automatically deploy template to fix detected drift
+  --ignore-config <path>     Path to drift ignore configuration file (default: drift-ignore.json)
   --simple-output           Use simple ASCII characters for CI/CD compatibility
   --help                     Show help information
 ```
@@ -406,13 +515,14 @@ Options:
 ```
 AzureDriftDetector/
 ├── Core/
-│   └── DriftDetector.cs          # Main orchestration logic
+│   └── DriftDetector.cs          # Main orchestration logic with ignore integration
 ├── Models/
-│   └── DriftModels.cs             # Data structures for drift results
+│   └── DriftModels.cs             # Data structures for drift results and ignore config
 ├── Services/
 │   ├── AzureCliService.cs         # Azure CLI integration & deployments
 │   ├── BicepService.cs            # Bicep compilation & what-if integration
-│   ├── ComparisonService.cs       # What-if output parsing & drift analysis
+│   ├── ComparisonService.cs       # What-if output parsing & drift analysis with filtering
+│   ├── DriftIgnoreService.cs      # Ignore pattern matching and drift filtering
 │   └── ReportingService.cs        # Multi-format output generation
 ├── bicep-modules/                 # Modular Bicep templates
 │   ├── storage-account.bicep      # Storage with exported types
@@ -421,6 +531,7 @@ AzureDriftDetector/
 │   ├── app-service-plan.bicep
 │   ├── log-analytics-workspace.bicep
 │   └── key-vault.bicep
+├── drift-ignore.json              # Default ignore configuration for Azure platform noise
 ├── main-template.bicep            # Main template importing module types
 ├── main-template.bicepparam       # Parameter configuration
 └── Program.cs                     # CLI interface & dependency injection
@@ -430,7 +541,8 @@ AzureDriftDetector/
 
 - **BicepService**: Integrates Azure what-if for authoritative drift detection, handles bicepparam files
 - **AzureCliService**: Queries live Azure resources and executes deployments with proper error handling
-- **ComparisonService**: Parses what-if text output into structured drift results
+- **ComparisonService**: Parses what-if text output into structured drift results with ignore filtering integration
+- **DriftIgnoreService**: Pattern matching engine for filtering Azure platform noise and false positives
 - **ReportingService**: Generates clean, actionable drift reports in multiple formats
 - **Bicep Modules**: Type-safe, reusable infrastructure components with exported configuration types
 
