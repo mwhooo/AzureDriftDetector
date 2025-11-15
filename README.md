@@ -201,6 +201,8 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-04-0
    Actual:   "missing"
 ```
 
+Note: Internally the detector interprets Azure what-if `+` (create) lines as a Missing drift when the resource is defined in the template but does not exist in the target Azure environment. This makes deleted or never-deployed resources visible in drift reports (see PR #71).
+
 ### Scenario 5: Automatic Drift Remediation with --autofix
 **Template Definition:**
 ```bicep

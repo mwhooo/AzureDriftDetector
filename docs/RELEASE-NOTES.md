@@ -61,6 +61,12 @@ No migration required - this is a bug fix that improves existing functionality.
    Actual:   "1.1"    # Azure currently has this
 ```
 
+### ❗ Missing Resource Detection
+
+- **What changed:** The tool now treats Azure what-if `+` (create) results as a Missing drift when a resource is defined in the template but is absent in Azure. This fixes cases where deleted or never-deployed resources were previously not reported as drift.
+- **Impact:** Users will now see explicit Missing resource entries in drift reports for template-defined resources that are not present in the target Azure subscription/resource group.
+- **PR:** See https://github.com/mwhooo/AzureDriftDetector/pull/71 for details.
+
 ## Version 2.3.1 - Automatic Drift Remediation (2025-11-13)
 
 ### 🎯 Summary
