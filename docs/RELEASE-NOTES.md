@@ -1,5 +1,66 @@
 # Release Notes
 
+## Version 3.2.1 - Critical Drift Reporting Bug Fix (2025-11-15)
+
+### 🎯 Summary
+This patch release fixes a critical bug in drift detection reports where Expected and Actual values were swapped, causing confusion and making it difficult to understand what changes were needed.
+
+### 🐛 Bug Fixes
+
+#### Expected/Actual Value Correction
+- **Fixed Value Swapping**: Corrected the assignment of Expected and Actual values in drift reports
+- **Before**: Expected showed current Azure values, Actual showed template values (confusing!)
+- **After**: Expected shows template values, Actual shows current Azure values (intuitive!)
+
+#### Impact on User Experience
+- **Clear Actionable Reports**: Users can now immediately understand what their template expects vs. what Azure currently has
+- **Better Decision Making**: Easier to determine whether to update the template or fix Azure resources
+- **Reduced Confusion**: No more backwards logic in drift detection output
+
+### 🔧 Technical Details
+
+#### Code Changes
+- **File**: `Services/ComparisonService.cs`
+- **Method**: `ExtractPropertyDriftFromWhatIfLine`
+- **Fix**: Swapped `expectedValue` and `actualValue` assignments to match Azure what-if output format
+
+#### What-if Output Format
+Azure what-if shows: `current_azure_value => template_value`
+- **Before**: Expected = current_azure_value, Actual = template_value ❌
+- **After**: Expected = template_value, Actual = current_azure_value ✅
+
+### 🧪 Testing Validation
+
+#### Verified Scenarios
+- **Service Bus TLS Drift**: Expected="1.2", Actual="1.1" ✅
+- **Storage Account SKU Drift**: Expected="Standard_LRS", Actual="Standard_GRS" ✅
+- **NSG Security Rules**: Expected="Template configuration", Actual="missing rule" ✅
+- **Multiple Resource Types**: Consistent behavior across all Azure resource types
+
+### 📊 Impact
+- **User Experience**: Significantly improved clarity in drift reports
+- **Operational Efficiency**: Faster decision-making for drift remediation
+- **Bug Severity**: Critical - affected all drift detection output
+
+### 🔄 Migration
+No migration required - this is a bug fix that improves existing functionality.
+
+### 📝 Example Output Improvement
+
+#### Before (v3.2.0) - Confusing
+```
+🔄 properties.minimumTlsVersion (Modified)
+   Expected: "1.1"    # Current Azure value - confusing!
+   Actual:   "1.2"    # Template value - backwards!
+```
+
+#### After (v3.2.1) - Clear
+```
+🔄 properties.minimumTlsVersion (Modified)
+   Expected: "1.2"    # Template expects this
+   Actual:   "1.1"    # Azure currently has this
+```
+
 ## Version 2.3.1 - Automatic Drift Remediation (2025-11-13)
 
 ### 🎯 Summary
