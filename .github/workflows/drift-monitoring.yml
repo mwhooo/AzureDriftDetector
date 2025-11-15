@@ -103,7 +103,7 @@ jobs:
         script: |
           const fs = require('fs');
           const env = '${{ matrix.environment.name }}';
-          const title = `🚨 Configuration Drift Detected in ${env.toUpperCase()}`;
+          const title = '🚨 Configuration Drift Detected in ' + env.toUpperCase();
           
           let driftSummary = 'No drift details available';
           let detailedReport = '';
@@ -121,8 +121,8 @@ jobs:
               detailedReport = '\\n## 📋 Detailed Drift Analysis\\n\\n';
               
               report.ResourceDrifts.forEach((resource, index) => {
-                detailedReport += `### ${index + 1}. ${resource.ResourceType}\\n`;
-                detailedReport += `**Resource Name:** \\`${resource.ResourceName}\\`\\n\\n`;
+                detailedReport += '### ' + (index + 1) + '. ' + resource.ResourceType + '\\n';
+                detailedReport += '**Resource Name:** \\`' + resource.ResourceName + '\\`\\n\\n';
                 
                 if (resource.PropertyDrifts && resource.PropertyDrifts.length > 0) {
                   resource.PropertyDrifts.forEach(prop => {
@@ -143,9 +143,9 @@ jobs:
                     const emoji = driftTypeEmoji[prop.Type] || '🔍';
                     const typeName = driftTypeName[prop.Type] || 'Changed';
                     
-                    detailedReport += `**${emoji} ${typeName}:** \\`${prop.PropertyPath}\\`\\n`;
-                    detailedReport += `- **Expected:** \\`${prop.ExpectedValue}\\`\\n`;
-                    detailedReport += `- **Actual:** \\`${prop.ActualValue}\\`\\n\\n`;
+                    detailedReport += '**' + emoji + ' ' + typeName + ':** \\`' + prop.PropertyPath + '\\`\\n';
+                    detailedReport += '- **Expected:** \\`' + prop.ExpectedValue + '\\`\\n';
+                    detailedReport += '- **Actual:** \\`' + prop.ActualValue + '\\`\\n\\n';
                   });
                 } else {
                   detailedReport += '- No property drift details available\\n\\n';
@@ -162,7 +162,7 @@ jobs:
             // Try to show raw content if JSON parsing failed
             try {
               const rawContent = fs.readFileSync('drift-report.json', 'utf8');
-              detailedReport += `\\n## Raw Output\\n\\`\\`\\`\\n${rawContent}\\n\\`\\`\\`\\n`;
+              detailedReport += '\\n## Raw Output\\n\\`\\`\\`\\n' + rawContent + '\\n\\`\\`\\`\\n';
             } catch (readError) {
               detailedReport += '\\n*No drift report file available*\\n';
             }
