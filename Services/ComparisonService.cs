@@ -1320,8 +1320,23 @@ public class ComparisonService
                 }
                 else if (firstChar == '+')
                 {
-                    // Resource will be created - this is NOT drift, it's part of the deployment
-                    // Skip it - no drift to report
+                    // Resource will be created - this means the resource is missing in Azure
+                    // This IS drift - report it as missing
+                    result.ResourceDrifts.Add(new ResourceDrift
+                    {
+                        ResourceType = resourceInfo.type,
+                        ResourceName = resourceInfo.name,
+                        PropertyDrifts = new List<PropertyDrift>
+                        {
+                            new PropertyDrift
+                            {
+                                PropertyPath = "resource",
+                                ExpectedValue = "defined in template",
+                                ActualValue = "missing in Azure",
+                                Type = DriftType.Missing
+                            }
+                        }
+                    });
                     currentResourceDrift = null;
                 }
                 else if (firstChar == '-')
