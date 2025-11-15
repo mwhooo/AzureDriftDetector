@@ -364,7 +364,7 @@ The drift detector leverages Azure's native what-if functionality for authoritat
 
 ```bash
 # Behind the scenes, the tool runs:
-az deployment group what-if --resource-group dev --template-file main-template.bicep --parameters main-template.bicepparam
+az deployment group what-if --resource-group dev --template-file samples/main-template.bicep --parameters samples/main-template.bicepparam
 ```
 
 This provides:
@@ -551,8 +551,9 @@ AzureDriftDetector/
 │   ├── SECURITY-SETUP.md         # GitHub Advanced Security setup
 │   └── BICEP-BUILD.md            # Bicep module development guide
 ├── drift-ignore.json              # Default ignore configuration for Azure platform noise
-├── main-template.bicep            # Main template importing module types
-├── main-template.bicepparam       # Parameter configuration
+├── samples/                       # Example Bicep templates and parameters
+│   ├── main-template.bicep        # Main template importing module types
+│   └── main-template.bicepparam   # Parameter configuration
 └── Program.cs                     # CLI interface & dependency injection
 ```
 

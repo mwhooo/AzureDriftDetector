@@ -24,18 +24,21 @@ Documentation for developing and maintaining the modular Bicep templates used by
 ### [Release Notes](RELEASE-NOTES.md)
 Version history and changelog for the Azure Configuration Drift Detector.
 
-### [Monitoring Setup](../MONITORING.md)
+### [Monitoring Setup](MONITORING.md)
 Guide for setting up automated drift monitoring with GitHub Actions.
 
-### [OpenID Connect Setup](../OIDC-SETUP.md)
+### [OpenID Connect Setup](OIDC-SETUP.md)
 Instructions for configuring OIDC authentication with Azure for secure GitHub Actions workflows.
+
+### [Testing Documentation](TESTING.md)
+Information about test infrastructure, known issues, and future testing plans.
 
 ## Quick Links
 
 - **Getting Started**: See main [README.md](../README.md)
 - **Drift Ignore Examples**: Jump to [Common Patterns](DRIFT-IGNORE.md#common-ignore-patterns)
 - **Troubleshooting**: See [Drift Ignore Troubleshooting](DRIFT-IGNORE.md#troubleshooting)
-- **GitHub Actions**: See [Monitoring Setup](../MONITORING.md)
+- **GitHub Actions**: See [Monitoring Setup](MONITORING.md)
 
 ## Contributing
 

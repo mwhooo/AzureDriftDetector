@@ -27,7 +27,7 @@ jobs:
     strategy:
       matrix:
         environment: 
-          - { name: 'dev', resource_group: 'dev', template: 'main-template.bicepparam' }
+          - { name: 'dev', resource_group: 'dev', template: 'samples/main-template.bicepparam' }
       fail-fast: false
       
     name: Monitor ${{ matrix.environment.name }}
