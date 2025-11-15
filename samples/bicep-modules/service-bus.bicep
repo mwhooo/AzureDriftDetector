@@ -1,4 +1,3 @@
-// Type definitions
 @export()
 type ServiceBusSku = 'Basic' | 'Standard' | 'Premium'
 

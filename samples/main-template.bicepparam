@@ -164,4 +164,4 @@ param deployStorage = true
 param deployAppServicePlan = true
 param deployLogAnalytics = true
 param deployKeyVault = false
-param deployServiceBus = false
+param deployServiceBus = true

@@ -1498,12 +1498,14 @@ public class ComparisonService
         
         if (symbol == '~')
         {
-            // Modified property - extract before => after
+            // Modified property - extract current => desired (Azure what-if shows current => template)
             var arrowIndex = valuesPart.IndexOf("=>");
             if (arrowIndex != -1)
             {
-                expectedValue = valuesPart.Substring(0, arrowIndex).Trim().Trim('"');
-                actualValue = valuesPart.Substring(arrowIndex + 2).Trim().Trim('"');
+                // What-if shows: current_azure_value => template_value
+                // For drift detection: Expected = template_value, Actual = current_azure_value
+                actualValue = valuesPart.Substring(0, arrowIndex).Trim().Trim('"');
+                expectedValue = valuesPart.Substring(arrowIndex + 2).Trim().Trim('"');
                 driftType = DriftType.Modified;
             }
             else

@@ -48,7 +48,7 @@ var storageConfigWithCommon = union(storageConfig, {location: location, tags: ta
 var appServicePlanConfigWithCommon = union(appServicePlanConfig, {location: location, tags: tags})
 var logAnalyticsConfigWithCommon = logAnalyticsConfig != null ? union(logAnalyticsConfig!, {location: location, tags: tags, name: '${logAnalyticsConfig!.name}-${uniqueSuffix}'}) : null
 var keyVaultConfigWithCommon = keyVaultConfig != null ? union(keyVaultConfig!, {location: location, tags: tags, name: '${keyVaultConfig!.name}${uniqueSuffix}'}) : null
-var serviceBusConfigWithCommon = serviceBusConfig != null ? union(serviceBusConfig!, {location: location, tags: tags, name: '${serviceBusConfig!.name}${uniqueSuffix}'}) : null
+var serviceBusConfigWithCommon = serviceBusConfig != null ? union(serviceBusConfig!, {location: location, tags: tags, name: serviceBusConfig!.name}) : null
 
 // Virtual Network Module
 module vnetModule 'bicep-modules/virtual-network.bicep' = if (deployVnet) {
