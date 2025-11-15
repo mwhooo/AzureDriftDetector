@@ -1,15 +1,4 @@
-@description('Configuration for Application Gateway')
-param appGatewayConfig object
-
-@description('Location for the Application Gateway')
-param location string = resourceGroup().location
-
-@description('Resource tags')
-param tags object = {}
-
-@description('Subnet ID for Application Gateway')
-param subnetId string
-
+// Type definitions
 @export()
 type ApplicationGatewayConfig = {
   name: string
@@ -45,6 +34,19 @@ type ApplicationGatewayConfig = {
   firewallMode: 'Detection' | 'Prevention'?
 }
 
+// Parameters
+@description('Configuration for Application Gateway')
+param appGatewayConfig ApplicationGatewayConfig
+
+@description('Location for the Application Gateway')
+param location string = resourceGroup().location
+
+@description('Resource tags')
+param tags object = {}
+
+@description('Subnet ID for Application Gateway')
+param subnetId string
+
 resource publicIp 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
   name: '${appGatewayConfig.name}-pip'
   location: location
@@ -74,7 +76,7 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2023-05-01' =
       minCapacity: appGatewayConfig.capacity.min
       maxCapacity: appGatewayConfig.capacity.max
     }
-    enableHttp2: appGatewayConfig.enableHttp2 ?? true
+    enableHttp2: appGatewayConfig.?enableHttp2 ?? true
     gatewayIPConfigurations: [
       {
         name: 'appGatewayIpConfig'
@@ -131,7 +133,7 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2023-05-01' =
           id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayConfig.name, listener.frontendPortName)
         }
         protocol: listener.protocol
-        hostName: listener.hostName
+        hostName: listener.?hostName
       }
     }]
     requestRoutingRules: [for rule in appGatewayConfig.routingRules: {
@@ -152,7 +154,7 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2023-05-01' =
     }]
     webApplicationFirewallConfiguration: appGatewayConfig.sku.tier == 'WAF_v2' ? {
       enabled: true
-      firewallMode: appGatewayConfig.firewallMode ?? 'Detection'
+      firewallMode: appGatewayConfig.?firewallMode ?? 'Detection'
       ruleSetType: 'OWASP'
       ruleSetVersion: '3.2'
     } : null

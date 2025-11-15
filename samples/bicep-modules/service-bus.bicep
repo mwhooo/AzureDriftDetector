@@ -150,27 +150,15 @@ resource topics 'Microsoft.ServiceBus/namespaces/topics@2022-10-01-preview' = [f
   }
 }]
 
-// Topic Subscriptions
-resource subscriptions 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2022-10-01-preview' = [for (topic, topicIndex) in (serviceBusConfig.?topics ?? []): {
+// Topic Subscriptions (simplified approach - requires at least one subscription per topic)
+resource topicSubscriptions 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2022-10-01-preview' = [for (topic, topicIndex) in (serviceBusConfig.?topics ?? []): if (length(topic.?subscriptions ?? []) > 0) {
   parent: topics[topicIndex]
   name: topic.subscriptions[0].name
   properties: {
     maxDeliveryCount: topic.subscriptions[0].?maxDeliveryCount ?? 10
     lockDuration: topic.subscriptions[0].?lockDuration ?? 'PT1M'
-    deadLetteringOnMessageExpiration: true
-    enableBatchedOperations: true
-  }
-}]
-
-// Additional subscriptions for topics with multiple subscriptions
-resource additionalSubscriptions 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2022-10-01-preview' = [for (topic, topicIndex) in (serviceBusConfig.?topics ?? []): if (length(topic.subscriptions) > 1) {
-  parent: topics[topicIndex]
-  name: topic.subscriptions[1].name
-  properties: {
-    maxDeliveryCount: topic.subscriptions[1].?maxDeliveryCount ?? 10
-    lockDuration: topic.subscriptions[1].?lockDuration ?? 'PT1M'
-    deadLetteringOnMessageExpiration: true
-    enableBatchedOperations: true
+    deadLetteringOnMessageExpiration: topic.subscriptions[0].?deadLetteringOnMessageExpiration ?? true
+    enableBatchedOperations: topic.subscriptions[0].?enableBatchedOperations ?? true
   }
 }]
 

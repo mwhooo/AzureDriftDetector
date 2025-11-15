@@ -102,19 +102,19 @@ output resourceName string = myResource.name
 6. **Outputs**: Export useful resource properties for referencing
 
 ### Testing
-Test modules using the sample templates in [`../samples/`](../samples/):
+Test modules using the sample templates in [`../`](../):
 
 ```bash
 # Test a specific module
 az deployment group what-if \
   --resource-group test-rg \
-  --template-file samples/main-template.bicep \
-  --parameters samples/main-template.bicepparam
+  --template-file ../main-template.bicep \
+  --parameters ../main-template.bicepparam
 ```
 
 ## 📚 Related Documentation
 
-- [Sample Templates](../samples/README.md) - Example usage of these modules
+- [Sample Templates](../README.md) - Example usage of these modules
 - [Drift Detection Guide](../docs/DRIFT-IGNORE.md) - Configure drift detection for module resources
 - [Bicep Build Guide](../docs/BICEP-BUILD.md) - Module development and build process
 
