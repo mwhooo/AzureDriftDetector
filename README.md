@@ -615,6 +615,40 @@ Perfect for CI/CD pipelines and infrastructure validation workflows!
 
 ## 📄 Exit Codes
 
+- `0`: No configuration drift detected
+- `1`: Configuration drift detected or error occurred
+
+Perfect for CI/CD pipelines and infrastructure validation workflows!
+
+## 📝 Changelog
+
+### v3.2.0 (2025-11-15) - Comprehensive Drift Ignore System 🔇
+**Production-Ready Noise Reduction**
+
+#### 🔇 **Drift Ignore System**
+- ✨ **Configurable Ignore Patterns**: JSON-based configuration for suppressing Azure platform noise
+- 🎯 **Purpose-Built for AVM/Platform Behaviors**: Specifically designed to filter out Azure Resource Manager and Azure Verified Module modifications beyond user control
+- 📋 **Resource-Specific Rules**: Target specific resource types with custom ignore patterns
+- 🌐 **Global Pattern Support**: Wildcards and pattern matching for broad timestamp/state filtering
+- 🖥️ **Command Line Integration**: `--ignore-config` parameter for flexible configuration file paths
+- 📊 **Filtering Statistics**: Reports showing how many false positives were suppressed
+
+#### 🚀 **Enhanced Azure Resource Support**
+- ✨ **Service Bus Integration**: Complete support for Namespaces, Queues, Topics, and Subscriptions
+- 🔧 **Tier-Aware Configuration**: Conditional properties based on Basic vs Standard/Premium Service Bus tiers
+- 🌐 **Application Gateway Module**: Full Azure Application Gateway Bicep module with exported types
+- 🗃️ **Azure SQL Database**: Complete SQL Database support with server and database configuration
+
+#### ⚡ **Improved Drift Detection Accuracy**
+- 🐛 **Fixed What-If Symbol Interpretation**: Correctly handle -, +, ~, = symbols in Azure what-if output
+- 🔍 **Better Child Resource Handling**: Enhanced detection for nested resources and complex object drift
+- 📈 **Real-World Impact**: Reduced false positives from 13 to 1 in production scenarios
+
+#### 🛠️ **Technical Architecture**
+- 🆕 **DriftIgnoreService**: New service for pattern matching and drift filtering
+- 🔧 **Enhanced ComparisonService**: Integrated ignore filtering with what-if parsing
+- 📚 **Updated Documentation**: Comprehensive ignore configuration guide and best practices
+
 ### v3.0.0 (2025-11-13) - Major Architecture Overhaul 🚀
 **Breaking Changes - Major Release**
 
