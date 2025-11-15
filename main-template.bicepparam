@@ -160,4 +160,4 @@ param serviceBusConfig = {
 // Deployment Flags
 param deployStorage = true
 param deployKeyVault = false
-param deployServiceBus = true
+param deployServiceBus = false
