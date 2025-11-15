@@ -7,6 +7,7 @@ import {NsgConfig} from 'bicep-modules/network-security-group.bicep'
 import {AppServicePlanConfig} from 'bicep-modules/app-service-plan.bicep'
 import {LogAnalyticsConfig} from 'bicep-modules/log-analytics-workspace.bicep'
 import {KeyVaultConfig} from 'bicep-modules/key-vault.bicep'
+import {ServiceBusConfig} from 'bicep-modules/service-bus.bicep'
 
 @description('Common parameters')
 param location string = resourceGroup().location
@@ -31,12 +32,16 @@ param logAnalyticsConfig LogAnalyticsConfig?
 @description('Key Vault configuration')
 param keyVaultConfig KeyVaultConfig?
 
+@description('Service Bus configuration')
+param serviceBusConfig ServiceBusConfig?
+
 @description('Common resource tags')
 param tags object
 
 @description('Deployment switches')
 param deployStorage bool = true
 param deployKeyVault bool = false
+param deployServiceBus bool = false
 
 // Generate unique suffix for resource names
 var uniqueSuffix = take(uniqueString(resourceGroup().id), 8)
@@ -48,6 +53,7 @@ var storageConfigWithCommon = union(storageConfig, {location: location, tags: ta
 var appServicePlanConfigWithCommon = union(appServicePlanConfig, {location: location, tags: tags})
 var logAnalyticsConfigWithCommon = logAnalyticsConfig != null ? union(logAnalyticsConfig!, {location: location, tags: tags, name: '${logAnalyticsConfig!.name}-${uniqueSuffix}'}) : null
 var keyVaultConfigWithCommon = keyVaultConfig != null ? union(keyVaultConfig!, {location: location, tags: tags, name: '${keyVaultConfig!.name}${uniqueSuffix}'}) : null
+var serviceBusConfigWithCommon = serviceBusConfig != null ? union(serviceBusConfig!, {location: location, tags: tags}) : null
 
 // Virtual Network Module
 module vnetModule 'bicep-modules/virtual-network.bicep' = {
@@ -97,12 +103,21 @@ module keyVaultModule 'bicep-modules/key-vault.bicep' = if (deployKeyVault && ke
   }
 }
 
+// Service Bus Module (conditional)
+module serviceBusModule 'bicep-modules/service-bus.bicep' = if (deployServiceBus && serviceBusConfig != null) {
+  name: 'service-bus-deployment'
+  params: {
+    serviceBusConfig: serviceBusConfigWithCommon!
+  }
+}
+
 // Outputs
 output vnetId string = vnetModule.outputs.vnetId
 output storageAccountName string = deployStorage ? storageModule!.outputs.storageAccountName : ''
 output appServicePlanId string = appServicePlanModule.outputs.appServicePlanId
 output logAnalyticsWorkspaceId string = logAnalyticsConfig != null ? logAnalyticsModule!.outputs.workspaceId : ''
 output keyVaultName string = deployKeyVault && keyVaultConfig != null ? keyVaultModule!.outputs.keyVaultName : ''
+output serviceBusNamespaceName string = deployServiceBus && serviceBusConfig != null ? serviceBusModule!.outputs.serviceBusNamespaceName : ''
 output nsgId string = nsgModule.outputs.nsgId
 output environmentName string = environmentName
 output applicationName string = applicationName

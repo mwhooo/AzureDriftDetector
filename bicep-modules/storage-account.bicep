@@ -69,6 +69,7 @@ type StorageAccountConfig = {
 @description('Storage account configuration')
 param storageAccountConfig StorageAccountConfig
 
+// Direct resource creation (not using AVM to avoid drift noise)
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountConfig.storageAccountName
   location: storageAccountConfig.?location ?? resourceGroup().location
@@ -100,11 +101,5 @@ output storageAccountId string = storageAccount.id
 @description('Storage account name')
 output storageAccountName string = storageAccount.name
 
-@description('Primary endpoints')
-output primaryEndpoints object = storageAccount.properties.primaryEndpoints
-
 @description('Storage account primary blob endpoint')
 output primaryBlobEndpoint string = storageAccount.properties.primaryEndpoints.blob
-
-@description('Storage account primary file endpoint')
-output primaryFileEndpoint string = storageAccount.properties.primaryEndpoints.file

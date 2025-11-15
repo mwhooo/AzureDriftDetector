@@ -5,6 +5,13 @@ param location = 'westeurope'
 param environmentName = 'test'
 param applicationName = 'drifttest'
 
+// Common Tags
+param tags = {
+  Environment: 'test'
+  Application: 'drifttest'
+  ResourceType: 'Infrastructure'
+}
+
 // Storage Account Configuration
 param storageConfig = {
   storageAccountName: 'drifttestsa'
@@ -114,13 +121,43 @@ param keyVaultConfig = {
   publicNetworkAccess: 'Enabled'
 }
 
-// Common Tags
-param tags = {
-  Environment: 'test'
-  Application: 'drifttest'
-  ResourceType: 'Infrastructure'
+// Service Bus Configuration (Basic tier - FREE)
+param serviceBusConfig = {
+  name: 'drifttest-servicebus'
+  skuName: 'Basic'
+  disableLocalAuth: false
+  publicNetworkAccess: 'Enabled'
+  minimumTlsVersion: '1.2'
+  queues: [
+    {
+      name: 'orders'
+      maxDeliveryCount: 10
+      lockDuration: 'PT5M'
+      requiresDuplicateDetection: false
+      requiresSession: false
+      deadLetteringOnMessageExpiration: false
+    }
+    {
+      name: 'deadletter'
+      maxDeliveryCount: 1
+      lockDuration: 'PT1M'
+      requiresDuplicateDetection: false
+      requiresSession: false
+      deadLetteringOnMessageExpiration: false
+    }
+    {
+      name: 'notifications'
+      maxDeliveryCount: 5
+      lockDuration: 'PT2M'
+      requiresDuplicateDetection: false
+      requiresSession: false
+      deadLetteringOnMessageExpiration: false
+    }
+  ]
+  topics: []
 }
 
 // Deployment Flags
 param deployStorage = true
 param deployKeyVault = false
+param deployServiceBus = true

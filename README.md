@@ -468,6 +468,7 @@ AzureDriftDetector/
 - ✅ **Networking**: Virtual Networks, Subnets, Network Security Groups, Application Gateways
 - ✅ **Compute**: App Service Plans, Function Apps, Virtual Machines  
 - ✅ **Storage**: Storage Accounts, Blob containers, File shares
+- ✅ **Messaging**: Service Bus (Namespaces, Queues, Topics, Subscriptions)
 - ✅ **Security**: Key Vaults, Managed Identities
 - ✅ **Data**: SQL Databases, Cosmos DB, Redis Cache
 - ✅ **Any other Azure resource type** (generic support)
