@@ -61,7 +61,7 @@ jobs:
       continue-on-error: true
       run: |
         chmod +x .github/scripts/check-drift.sh
-        .github/scripts/check-drift.sh "${{ matrix.environment.template }}" "${{ matrix.environment.resource_group }}" "drift-report.json"
+        .github/scripts/check-drift.sh "${{ matrix.environment.template }}" "${{ matrix.environment.resource_group }}" "drift-report.json" "drift-ignore.json"
     
     - name: Upload Drift Report
       if: always()
