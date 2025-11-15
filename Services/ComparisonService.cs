@@ -1320,9 +1320,8 @@ public class ComparisonService
                 }
                 else if (firstChar == '+')
                 {
-                    // Resource will be created - treat this as a missing resource in Azure (drift)
-                    // e.g., if the resource was deleted manually in Azure, what-if shows '+' (create)
-                    // Report this as a Missing drift so deletions are detected.
+                    // Resource will be created - this means the resource is missing in Azure
+                    // This IS drift - report it as missing
                     result.ResourceDrifts.Add(new ResourceDrift
                     {
                         ResourceType = resourceInfo.type,
