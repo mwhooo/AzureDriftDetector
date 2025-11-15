@@ -54,13 +54,13 @@ jobs:
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     - name: Build Drift Detector
-      run: dotnet build --configuration Release
+      run: dotnet build AzureDriftDetector.csproj --configuration Release
 
     - name: Check Drift
       id: check
       continue-on-error: true
       run: |
-        if dotnet run --no-build --configuration Release -- --bicep-file ${{ matrix.environment.template }} --resource-group ${{ matrix.environment.resource_group }} --output Json > drift-report.json; then
+        if dotnet run --no-build --configuration Release --project AzureDriftDetector.csproj -- --bicep-file ${{ matrix.environment.template }} --resource-group ${{ matrix.environment.resource_group }} --output Json > drift-report.json; then
           echo "drift=false" >> $GITHUB_OUTPUT
         else
           echo "drift=true" >> $GITHUB_OUTPUT
