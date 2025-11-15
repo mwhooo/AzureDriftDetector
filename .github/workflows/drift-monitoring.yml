@@ -61,16 +61,18 @@ jobs:
       continue-on-error: true
       run: |
         # Run with JSON output and capture stdout only
-        dotnet run --no-build --configuration Release --project AzureDriftDetector.csproj -- --bicep-file ${{ matrix.environment.template }} --resource-group ${{ matrix.environment.resource_group }} --output Json > drift-report.json 2>&1
+        # Note: exit code may be non-zero even with valid JSON, so we ignore it
+        dotnet run --no-build --configuration Release --project AzureDriftDetector.csproj -- --bicep-file ${{ matrix.environment.template }} --resource-group ${{ matrix.environment.resource_group }} --output Json > drift-report.json 2>&1 || true
         
         # Check if valid JSON was generated
-        if jq empty drift-report.json 2>/dev/null; then
+        if [ -f drift-report.json ] && jq empty drift-report.json 2>/dev/null; then
           # Parse HasDrift field from JSON
           HAS_DRIFT=$(jq -r '.HasDrift' drift-report.json)
           echo "drift=$HAS_DRIFT" >> $GITHUB_OUTPUT
         else
           echo "drift=false" >> $GITHUB_OUTPUT
           echo "Warning: Failed to parse drift report as JSON"
+          cat drift-report.json || echo "No drift-report.json file found"
         fi
     
     - name: Upload Drift Report
