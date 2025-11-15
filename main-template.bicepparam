@@ -158,6 +158,10 @@ param serviceBusConfig = {
 }
 
 // Deployment Flags
+param deployVnet = true
+param deployNsg = true
 param deployStorage = true
+param deployAppServicePlan = true
+param deployLogAnalytics = true
 param deployKeyVault = false
 param deployServiceBus = false

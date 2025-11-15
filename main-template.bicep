@@ -11,8 +11,8 @@ import {ServiceBusConfig} from 'bicep-modules/service-bus.bicep'
 
 @description('Common parameters')
 param location string = resourceGroup().location
-param environmentName string = 'test'
-param applicationName string = 'drifttest'
+param environmentName string
+param applicationName string
 
 @description('Storage account configuration')
 param storageConfig StorageAccountConfig
@@ -39,9 +39,13 @@ param serviceBusConfig ServiceBusConfig?
 param tags object
 
 @description('Deployment switches')
-param deployStorage bool = true
-param deployKeyVault bool = false
-param deployServiceBus bool = false
+param deployVnet bool
+param deployNsg bool
+param deployStorage bool
+param deployAppServicePlan bool
+param deployLogAnalytics bool
+param deployKeyVault bool
+param deployServiceBus bool
 
 // Generate unique suffix for resource names
 var uniqueSuffix = take(uniqueString(resourceGroup().id), 8)
@@ -53,10 +57,10 @@ var storageConfigWithCommon = union(storageConfig, {location: location, tags: ta
 var appServicePlanConfigWithCommon = union(appServicePlanConfig, {location: location, tags: tags})
 var logAnalyticsConfigWithCommon = logAnalyticsConfig != null ? union(logAnalyticsConfig!, {location: location, tags: tags, name: '${logAnalyticsConfig!.name}-${uniqueSuffix}'}) : null
 var keyVaultConfigWithCommon = keyVaultConfig != null ? union(keyVaultConfig!, {location: location, tags: tags, name: '${keyVaultConfig!.name}${uniqueSuffix}'}) : null
-var serviceBusConfigWithCommon = serviceBusConfig != null ? union(serviceBusConfig!, {location: location, tags: tags}) : null
+var serviceBusConfigWithCommon = serviceBusConfig != null ? union(serviceBusConfig!, {location: location, tags: tags, name: '${serviceBusConfig!.name}${uniqueSuffix}'}) : null
 
 // Virtual Network Module
-module vnetModule 'bicep-modules/virtual-network.bicep' = {
+module vnetModule 'bicep-modules/virtual-network.bicep' = if (deployVnet) {
   name: 'vnet-deployment'
   params: {
     vnetConfig: vnetConfigWithCommon
@@ -64,7 +68,7 @@ module vnetModule 'bicep-modules/virtual-network.bicep' = {
 }
 
 // Network Security Group Module
-module nsgModule 'bicep-modules/network-security-group.bicep' = {
+module nsgModule 'bicep-modules/network-security-group.bicep' = if (deployNsg) {
   name: 'nsg-deployment'
   params: {
     nsgConfig: nsgConfigWithCommon
@@ -80,15 +84,15 @@ module storageModule 'bicep-modules/storage-account.bicep' = if (deployStorage) 
 }
 
 // App Service Plan Module
-module appServicePlanModule 'bicep-modules/app-service-plan.bicep' = {
+module appServicePlanModule 'bicep-modules/app-service-plan.bicep' = if (deployAppServicePlan) {
   name: 'app-service-plan-deployment'
   params: {
     appServicePlanConfig: appServicePlanConfigWithCommon
   }
 }
 
-//Log Analytics Workspace Module
-module logAnalyticsModule 'bicep-modules/log-analytics-workspace.bicep' = if (logAnalyticsConfig != null) {
+// Log Analytics Workspace Module
+module logAnalyticsModule 'bicep-modules/log-analytics-workspace.bicep' = if (deployLogAnalytics && logAnalyticsConfig != null) {
   name: 'log-analytics-deployment'
   params: {
     logAnalyticsConfig: logAnalyticsConfigWithCommon!
@@ -112,12 +116,12 @@ module serviceBusModule 'bicep-modules/service-bus.bicep' = if (deployServiceBus
 }
 
 // Outputs
-output vnetId string = vnetModule.outputs.vnetId
+output vnetId string = deployVnet ? vnetModule!.outputs.vnetId : ''
 output storageAccountName string = deployStorage ? storageModule!.outputs.storageAccountName : ''
-output appServicePlanId string = appServicePlanModule.outputs.appServicePlanId
-output logAnalyticsWorkspaceId string = logAnalyticsConfig != null ? logAnalyticsModule!.outputs.workspaceId : ''
+output appServicePlanId string = deployAppServicePlan ? appServicePlanModule!.outputs.appServicePlanId : ''
+output logAnalyticsWorkspaceId string = deployLogAnalytics && logAnalyticsConfig != null ? logAnalyticsModule!.outputs.workspaceId : ''
 output keyVaultName string = deployKeyVault && keyVaultConfig != null ? keyVaultModule!.outputs.keyVaultName : ''
 output serviceBusNamespaceName string = deployServiceBus && serviceBusConfig != null ? serviceBusModule!.outputs.serviceBusNamespaceName : ''
-output nsgId string = nsgModule.outputs.nsgId
+output nsgId string = deployNsg ? nsgModule!.outputs.nsgId : ''
 output environmentName string = environmentName
 output applicationName string = applicationName
