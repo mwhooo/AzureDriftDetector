@@ -1,0 +1,34 @@
+{
+  "ignorePatterns": {
+    "description": "Configuration to suppress known false positive drift detections",
+    "resources": [
+      {
+        "resourceType": "Microsoft.ServiceBus/namespaces/queues",
+        "reason": "Azure Service Bus Basic tier retains premium properties after deployment",
+        "ignoredProperties": [
+          "properties.autoDeleteOnIdle",
+          "properties.defaultMessageTimeToLive", 
+          "properties.duplicateDetectionHistoryTimeWindow",
+          "properties.maxMessageSizeInKilobytes"
+        ],
+        "conditions": {
+          "skuTier": "Basic"
+        }
+      }
+    ],
+    "globalPatterns": [
+      {
+        "propertyPattern": "properties.provisioningState",
+        "reason": "Azure managed property that varies during deployment lifecycle"
+      },
+      {
+        "propertyPattern": "properties.createdAt",
+        "reason": "Azure managed timestamp property"
+      },
+      {
+        "propertyPattern": "properties.updatedAt", 
+        "reason": "Azure managed timestamp property"
+      }
+    ]
+  }
+}

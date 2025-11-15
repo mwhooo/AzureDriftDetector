@@ -46,13 +46,20 @@ class Program
         autofixOption.IsRequired = false;
         autofixOption.SetDefaultValue(false);
 
+        // Ignore configuration file option
+        var ignoreConfigOption = new Option<FileInfo?>(
+            name: "--ignore-config",
+            description: "Path to drift ignore configuration file (default: drift-ignore.json)");
+        ignoreConfigOption.IsRequired = false;
+
         rootCommand.Add(bicepFileOption);
         rootCommand.Add(resourceGroupOption);
         rootCommand.Add(outputFormatOption);
         rootCommand.Add(simpleOutputOption);
         rootCommand.Add(autofixOption);
+        rootCommand.Add(ignoreConfigOption);
 
-        rootCommand.SetHandler(async (bicepFile, resourceGroup, outputFormat, simpleOutput, autofix) =>
+        rootCommand.SetHandler(async (bicepFile, resourceGroup, outputFormat, simpleOutput, autofix, ignoreConfig) =>
         {
             try
             {
@@ -85,9 +92,13 @@ class Program
                 {
                     Console.WriteLine($"{(simpleOutput ? "[AUTOFIX]" : "🔧")} Autofix Mode: ENABLED");
                 }
+                if (ignoreConfig?.Exists == true)
+                {
+                    Console.WriteLine($"{(simpleOutput ? "[IGNORE]" : "🔇")} Ignore Config: {ignoreConfig.Name}");
+                }
                 Console.WriteLine();
 
-                var detector = new DriftDetector();
+                var detector = new DriftDetector(ignoreConfig?.FullName);
                 var result = await detector.DetectDriftAsync(bicepFile, resourceGroup, outputFormat);
                 
                 if (result.HasDrift)
@@ -133,7 +144,7 @@ class Program
                 Console.WriteLine($"{(simpleOutput ? "[TIP]" : "💡")} Ensure Azure CLI is installed and you're logged in with 'az login'");
                 Environment.Exit(1);
             }
-        }, bicepFileOption, resourceGroupOption, outputFormatOption, simpleOutputOption, autofixOption);
+        }, bicepFileOption, resourceGroupOption, outputFormatOption, simpleOutputOption, autofixOption, ignoreConfigOption);
 
         return await rootCommand.InvokeAsync(args);
     }

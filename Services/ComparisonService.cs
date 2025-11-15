@@ -7,10 +7,12 @@ namespace AzureDriftDetector.Services;
 public class ComparisonService
 {
     private readonly JsonDiffPatch _jsonDiffPatch;
+    private readonly DriftIgnoreService _ignoreService;
 
-    public ComparisonService()
+    public ComparisonService(DriftIgnoreService? ignoreService = null)
     {
         _jsonDiffPatch = new JsonDiffPatch();
+        _ignoreService = ignoreService ?? new DriftIgnoreService();
     }
 
     public DriftDetectionResult CompareResources(JObject expectedTemplate, List<AzureResource> liveResources)
@@ -21,7 +23,8 @@ public class ComparisonService
         if (expectedTemplate["_useWhatIfResults"]?.Value<bool>() == true)
         {
             Console.WriteLine($"📋 Using what-if results for drift detection");
-            return ParseWhatIfResults(expectedTemplate);
+            var rawResult = ParseWhatIfResults(expectedTemplate);
+            return _ignoreService.FilterIgnoredDrifts(rawResult);
         }
         
         // Fall back to manual comparison if what-if not used

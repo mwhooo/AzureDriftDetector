@@ -9,12 +9,14 @@ public class DriftDetector
     private readonly AzureCliService _azureCliService;
     private readonly ComparisonService _comparisonService;
     private readonly ReportingService _reportingService;
+    private readonly DriftIgnoreService? _ignoreService;
 
-    public DriftDetector()
+    public DriftDetector(string? ignoreConfigPath = null)
     {
         _bicepService = new BicepService();
         _azureCliService = new AzureCliService();
-        _comparisonService = new ComparisonService();
+        _ignoreService = !string.IsNullOrEmpty(ignoreConfigPath) ? new DriftIgnoreService(ignoreConfigPath) : new DriftIgnoreService();
+        _comparisonService = new ComparisonService(_ignoreService);
         _reportingService = new ReportingService();
     }
 

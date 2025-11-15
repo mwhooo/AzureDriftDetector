@@ -56,3 +56,30 @@ public class DeploymentResult
     public string? ErrorMessage { get; set; }
     public DateTime DeployedAt { get; set; } = DateTime.UtcNow;
 }
+
+// Drift ignore configuration models
+public class DriftIgnoreConfiguration
+{
+    public DriftIgnorePatterns IgnorePatterns { get; set; } = new();
+}
+
+public class DriftIgnorePatterns
+{
+    public string Description { get; set; } = string.Empty;
+    public List<ResourceIgnoreRule> Resources { get; set; } = new();
+    public List<GlobalIgnorePattern> GlobalPatterns { get; set; } = new();
+}
+
+public class ResourceIgnoreRule
+{
+    public string ResourceType { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public List<string> IgnoredProperties { get; set; } = new();
+    public Dictionary<string, string> Conditions { get; set; } = new();
+}
+
+public class GlobalIgnorePattern
+{
+    public string PropertyPattern { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+}
