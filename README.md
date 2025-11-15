@@ -727,3 +727,23 @@ Perfect for CI/CD pipelines and infrastructure validation workflows!
 ### Previous Versions
 - v2.0.0 - Initial stable release with multi-resource support
 - v1.x - Beta versions with basic drift detection capabilities
+
+---
+
+## 📄 License
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License**.
+
+**What this means:**
+- ✅ **Free to use** for personal, educational, and internal business purposes
+- ✅ **Free to modify** and distribute modifications under the same license
+- ❌ **Cannot be sold** or used for commercial redistribution
+- 📝 **Attribution required** - please credit the original project
+
+**For businesses:** You can use this tool internally within your organization for drift detection without any licensing fees. You just cannot package and sell it as a commercial product.
+
+See the [LICENSE](LICENSE) file for full details or visit [Creative Commons](https://creativecommons.org/licenses/by-nc-sa/4.0/) for more information.
+
+---
+
+**Built with ❤️ for the Azure DevOps community**
