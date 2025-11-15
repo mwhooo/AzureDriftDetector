@@ -117,20 +117,26 @@ resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2022-10-01-preview
 resource queues 'Microsoft.ServiceBus/namespaces/queues@2022-10-01-preview' = [for queue in (serviceBusConfig.?queues ?? []): {
   parent: serviceBusNamespace
   name: queue.name
-  properties: {
-    maxDeliveryCount: queue.?maxDeliveryCount ?? 10
-    lockDuration: queue.?lockDuration ?? 'PT1M'
-    requiresDuplicateDetection: queue.?requiresDuplicateDetection ?? false
-    requiresSession: queue.?requiresSession ?? false
-    deadLetteringOnMessageExpiration: queue.?deadLetteringOnMessageExpiration ?? false
-    autoDeleteOnIdle: queue.?autoDeleteOnIdle ?? 'P10675199DT2H48M5.4775807S'
-    defaultMessageTimeToLive: queue.?defaultMessageTimeToLive ?? 'P14D'
-    duplicateDetectionHistoryTimeWindow: queue.?duplicateDetectionHistoryTimeWindow ?? 'PT10M'
-    maxMessageSizeInKilobytes: queue.?maxMessageSizeInKilobytes ?? 256
-    maxSizeInMegabytes: 1024
-    enableBatchedOperations: true
-    enablePartitioning: false
-  }
+  properties: union(
+    // Base properties supported by all tiers
+    {
+      maxDeliveryCount: queue.?maxDeliveryCount ?? 10
+      lockDuration: queue.?lockDuration ?? 'PT1M'
+      requiresDuplicateDetection: queue.?requiresDuplicateDetection ?? false
+      requiresSession: queue.?requiresSession ?? false
+      deadLetteringOnMessageExpiration: queue.?deadLetteringOnMessageExpiration ?? false
+      maxSizeInMegabytes: 1024
+      enableBatchedOperations: true
+      enablePartitioning: false
+    },
+    // Advanced properties only for Standard and Premium tiers
+    (serviceBusConfig.?skuName ?? 'Basic') != 'Basic' ? {
+      autoDeleteOnIdle: queue.?autoDeleteOnIdle ?? 'P10675199DT2H48M5.4775807S'
+      defaultMessageTimeToLive: queue.?defaultMessageTimeToLive ?? 'P14D'
+      duplicateDetectionHistoryTimeWindow: queue.?duplicateDetectionHistoryTimeWindow ?? 'PT10M'
+      maxMessageSizeInKilobytes: queue.?maxMessageSizeInKilobytes ?? 256
+    } : {}
+  )
 }]
 
 // Topics
