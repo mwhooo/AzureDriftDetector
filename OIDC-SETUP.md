@@ -61,20 +61,20 @@ az ad app federated-credential create --id YOUR_CLIENT_ID --parameters '{
 }'
 ```
 
-### 3. Set GitHub Repository Variables
+### 3. Set GitHub Repository Secrets
 
-Use GitHub CLI to set **public variables** (not secrets):
+Use GitHub CLI to set **secrets** (these contain sensitive information):
 
 ```bash
-# Set repository variables (these are not sensitive)
-gh variable set AZURE_CLIENT_ID --body "YOUR_CLIENT_ID"
-gh variable set AZURE_TENANT_ID --body "YOUR_TENANT_ID" 
-gh variable set AZURE_SUBSCRIPTION_ID --body "YOUR_SUBSCRIPTION_ID"
+# Set repository secrets for sensitive Azure identifiers
+gh secret set AZURE_CLIENT_ID --body "YOUR_CLIENT_ID"
+gh secret set AZURE_TENANT_ID --body "YOUR_TENANT_ID" 
+gh secret set AZURE_SUBSCRIPTION_ID --body "YOUR_SUBSCRIPTION_ID"
 ```
 
 Or set them via GitHub web interface:
-- Go to **Settings** → **Secrets and variables** → **Actions** → **Variables** tab
-- Add the three variables above
+- Go to **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
+- Add the three secrets above
 
 ### 4. Update Workflow Configuration
 
@@ -93,9 +93,9 @@ And this authentication configuration:
 - name: Azure Login
   uses: azure/login@v2
   with:
-    client-id: ${{ vars.AZURE_CLIENT_ID }}
-    tenant-id: ${{ vars.AZURE_TENANT_ID }}
-    subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    client-id: ${{ secrets.AZURE_CLIENT_ID }}
+    tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+    subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 ```
 
 ## 🔍 Verification
