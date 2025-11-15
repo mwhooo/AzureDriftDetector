@@ -1,13 +1,4 @@
-// Clean main template using UDTs and modules
-
-// Import config types from modules
-import {StorageAccountConfig} from 'bicep-modules/storage-account.bicep'
-import {VnetConfig} from 'bicep-modules/virtual-network.bicep'
-import {NsgConfig} from 'bicep-modules/network-security-group.bicep'
-import {AppServicePlanConfig} from 'bicep-modules/app-service-plan.bicep'
-import {LogAnalyticsConfig} from 'bicep-modules/log-analytics-workspace.bicep'
-import {KeyVaultConfig} from 'bicep-modules/key-vault.bicep'
-import {ServiceBusConfig} from 'bicep-modules/service-bus.bicep'
+// Clean main template using modules with simplified parameter approach
 
 @description('Common parameters')
 param location string = resourceGroup().location
@@ -15,25 +6,25 @@ param environmentName string
 param applicationName string
 
 @description('Storage account configuration')
-param storageConfig StorageAccountConfig
+param storageConfig object
 
 @description('Virtual network configuration')  
-param vnetConfig VnetConfig
+param vnetConfig object
 
 @description('Network security group configuration')
-param nsgConfig NsgConfig
+param nsgConfig object
 
 @description('App Service Plan configuration')
-param appServicePlanConfig AppServicePlanConfig
+param appServicePlanConfig object
 
 @description('Log Analytics Workspace configuration')
-param logAnalyticsConfig LogAnalyticsConfig?
+param logAnalyticsConfig object?
 
 @description('Key Vault configuration')
-param keyVaultConfig KeyVaultConfig?
+param keyVaultConfig object?
 
 @description('Service Bus configuration')
-param serviceBusConfig ServiceBusConfig?
+param serviceBusConfig object?
 
 @description('Common resource tags')
 param tags object
