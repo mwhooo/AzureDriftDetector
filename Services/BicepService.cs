@@ -204,9 +204,7 @@ public class BicepService
                 Console.WriteLine($"⚠️  What-if command failed, falling back to build approach");
                 Console.WriteLine($"   Error: {error}");
                 
-                return fileExtension == ".bicepparam"
-                    ? await BuildBicepWithParametersAsync(bicepFilePath)
-                    : await BuildBicepFileAsync(bicepFilePath);
+                return await FallbackToBuildAsync(bicepFilePath);
             }
 
             Console.WriteLine($"✅ What-if analysis completed successfully");
@@ -219,10 +217,7 @@ public class BicepService
             Console.WriteLine($"⚠️  Error running what-if: {ex.Message}");
             Console.WriteLine($"   Falling back to build approach");
             
-            var fileExtension = Path.GetExtension(bicepFilePath).ToLowerInvariant();
-            return fileExtension == ".bicepparam"
-                ? await BuildBicepWithParametersAsync(bicepFilePath)
-                : await BuildBicepFileAsync(bicepFilePath);
+            return await FallbackToBuildAsync(bicepFilePath);
         }
     }
 
@@ -279,21 +274,13 @@ public class BicepService
         {
             var lines = whatIfOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             
-            foreach (var line in lines)
-            {
-                var trimmedLine = line.Trim();
-                
-                // Look for all resource lines in what-if output (create, modify, delete, no-change)
-                // Check for any what-if symbol: +, ~, =, -, x
-                if (trimmedLine.Length > 0 && "+=~-x".Contains(trimmedLine[0]))
-                {
-                    var resourceInfo = ExtractResourceInfoFromWhatIfLine(trimmedLine);
-                    if (resourceInfo != null)
-                    {
-                        resources.Add(resourceInfo);
-                    }
-                }
-            }
+            // Look for all resource lines in what-if output (create, modify, delete, no-change)
+            // Check for any what-if symbol: +, ~, =, -, x
+            resources.AddRange(
+                lines.Select(line => line.Trim())
+                     .Where(trimmedLine => trimmedLine.Length > 0 && "+=~-x".Contains(trimmedLine[0]))
+                     .Select(ExtractResourceInfoFromWhatIfLine)
+                     .Where(resourceInfo => resourceInfo != null)!);
         }
         catch (Exception ex)
         {
@@ -430,16 +417,14 @@ public class BicepService
             // Update the parameters section with the resolved values
             if (resolvedTemplate["parameters"] is JObject templateParams)
             {
-                foreach (var param in templateParams.Properties().ToList())
+                foreach (var param in templateParams.Properties().Where(p => parameterValues.ContainsKey(p.Name)).ToList())
                 {
-                    if (parameterValues.TryGetValue(param.Name, out var paramValue))
+                    var paramValue = parameterValues[param.Name];
+                    // Update the parameter with the resolved value
+                    var paramObj = param.Value as JObject;
+                    if (paramObj != null)
                     {
-                        // Update the parameter with the resolved value
-                        var paramObj = param.Value as JObject;
-                        if (paramObj != null)
-                        {
-                            paramObj["defaultValue"] = paramValue;
-                        }
+                        paramObj["defaultValue"] = paramValue;
                     }
                 }
             }
@@ -622,11 +607,17 @@ public class BicepService
         return nestedResources;
     }
 
-
-
     private List<JObject> FilterInfrastructureResources(List<JObject> resources)
     {
         return FilterInfrastructureResources(resources, 0, MaxRecursionDepth);
+    }
+
+    private async Task<JObject> FallbackToBuildAsync(string bicepFilePath)
+    {
+        var fileExtension = Path.GetExtension(bicepFilePath).ToLowerInvariant();
+        return fileExtension == ".bicepparam"
+            ? await BuildBicepWithParametersAsync(bicepFilePath)
+            : await BuildBicepFileAsync(bicepFilePath);
     }
 
     private List<JObject> FilterInfrastructureResources(List<JObject> resources, int currentDepth, int maxDepth)
