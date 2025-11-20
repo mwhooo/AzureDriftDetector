@@ -36,11 +36,6 @@ public class DriftIgnoreService
             
             return config ?? new DriftIgnoreConfiguration();
         }
-        catch (FileNotFoundException)
-        {
-            Console.WriteLine($"⚠️  No ignore configuration found at: {configPath}");
-            return new DriftIgnoreConfiguration();
-        }
         catch (JsonException ex)
         {
             Console.WriteLine($"⚠️  Warning: Invalid JSON in ignore configuration: {ex.Message}");

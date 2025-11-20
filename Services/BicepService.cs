@@ -204,14 +204,9 @@ public class BicepService
                 Console.WriteLine($"⚠️  What-if command failed, falling back to build approach");
                 Console.WriteLine($"   Error: {error}");
                 
-                if (fileExtension == ".bicepparam")
-                {
-                    return await BuildBicepWithParametersAsync(bicepFilePath);
-                }
-                else
-                {
-                    return await BuildBicepFileAsync(bicepFilePath);
-                }
+                return fileExtension == ".bicepparam"
+                    ? await BuildBicepWithParametersAsync(bicepFilePath)
+                    : await BuildBicepFileAsync(bicepFilePath);
             }
 
             Console.WriteLine($"✅ What-if analysis completed successfully");
@@ -225,14 +220,9 @@ public class BicepService
             Console.WriteLine($"   Falling back to build approach");
             
             var fileExtension = Path.GetExtension(bicepFilePath).ToLowerInvariant();
-            if (fileExtension == ".bicepparam")
-            {
-                return await BuildBicepWithParametersAsync(bicepFilePath);
-            }
-            else
-            {
-                return await BuildBicepFileAsync(bicepFilePath);
-            }
+            return fileExtension == ".bicepparam"
+                ? await BuildBicepWithParametersAsync(bicepFilePath)
+                : await BuildBicepFileAsync(bicepFilePath);
         }
     }
 
@@ -248,7 +238,10 @@ public class BicepService
             ["$schema"] = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
             ["contentVersion"] = "1.0.0.0",
             ["parameters"] = new JObject(),
-            ["resources"] = new JObject(), // NOTE: We use object format for resources here (instead of the standard ARM template array) because the what-if output is not structured as a standard ARM template. This allows us to map and analyze resources for drift detection more easily during what-if processing.
+            // NOTE: We use object format for resources here (instead of the standard ARM template array)
+            // because the what-if output is not structured as a standard ARM template.
+            // This allows us to map and analyze resources for drift detection more easily during what-if processing.
+            ["resources"] = new JObject(),
             ["_whatIfOutput"] = whatIfOutput,
             ["_useWhatIfResults"] = true, // Flag to indicate we should use what-if results directly
             ["_templateFile"] = templateFile,
@@ -290,8 +283,9 @@ public class BicepService
             {
                 var trimmedLine = line.Trim();
                 
-                // Look for resource creation lines (+ Create)
-                if (trimmedLine.StartsWith("+ ") && trimmedLine.Contains("Create"))
+                // Look for all resource lines in what-if output (create, modify, delete, no-change)
+                // Check for any what-if symbol: +, ~, =, -, x
+                if (trimmedLine.Length > 0 && "+=~-x".Contains(trimmedLine[0]))
                 {
                     var resourceInfo = ExtractResourceInfoFromWhatIfLine(trimmedLine);
                     if (resourceInfo != null)
@@ -313,21 +307,55 @@ public class BicepService
     {
         try
         {
-            // Example line: "+ Create Microsoft.Storage/storageAccounts bettystor232340934"
-            var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            // Example lines:
+            // "+ Create Microsoft.Storage/storageAccounts bettystor232340934"
+            // "~ Modify Microsoft.Network/networkSecurityGroups myNsg"
+            // "= No change Microsoft.Network/publicIPAddresses myIp"
+            // "- Delete Microsoft.Compute/virtualMachines myVm"
             
-            if (parts.Length >= 4 && parts[1] == "Create")
+            // Normalize whitespace and split
+            var normalizedLine = System.Text.RegularExpressions.Regex.Replace(line.Trim(), @"\s+", " ");
+            var parts = normalizedLine.Split(' ');
+            
+            // Need at least symbol, action, and resource type
+            if (parts.Length >= 3)
             {
-                var resourceType = parts[2];
-                var resourceName = parts[3];
+                var symbol = parts[0];
+                var action = parts[1];
+                var resourceType = parts.Length > 2 ? parts[2] : "";
                 
-                return new JObject
+                // Validate that we have a proper resource type (contains '/')
+                if (!resourceType.Contains('/')) return null;
+                
+                // Determine the action based on symbol and action word
+                string whatIfAction = action.ToLowerInvariant() switch
+                {
+                    "create" => "create",
+                    "modify" => "modify", 
+                    "delete" => "delete",
+                    "change" when symbol == "=" => "no-change",
+                    _ => action.ToLowerInvariant()
+                };
+                
+                var obj = new JObject
                 {
                     ["type"] = resourceType,
-                    ["name"] = resourceName,
                     ["_fromWhatIf"] = true,
-                    ["_action"] = "create"
+                    ["_action"] = whatIfAction,
+                    ["_symbol"] = symbol
                 };
+                
+                // Add resource name if available (join remaining parts for names with spaces)
+                if (parts.Length > 3)
+                {
+                    var resourceName = string.Join(" ", parts.Skip(3));
+                    if (!string.IsNullOrWhiteSpace(resourceName))
+                    {
+                        obj["name"] = resourceName;
+                    }
+                }
+                
+                return obj;
             }
         }
         catch (Exception ex)
