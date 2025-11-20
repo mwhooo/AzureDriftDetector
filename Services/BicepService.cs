@@ -22,25 +22,27 @@ public class BicepService
 
             JObject armTemplate;
             
-            // Check if this is a bicepparam file or regular bicep file
-            if (Path.GetExtension(bicepFilePath).ToLowerInvariant() == ".bicepparam")
+            // Prefer what-if analysis for all Bicep files when resource group is available
+            // This provides the most accurate view of what will actually be deployed,
+            // especially for external modules and complex parameter resolution
+            if (!string.IsNullOrEmpty(resourceGroup))
             {
-                // For bicepparam files with a resource group, use what-if to get fully resolved template
-                if (!string.IsNullOrEmpty(resourceGroup))
-                {
-                    Console.WriteLine($"🔍 Using deployment what-if to get fully resolved template...");
-                    armTemplate = await GetResolvedTemplateUsingWhatIfAsync(bicepFilePath, resourceGroup);
-                }
-                else
-                {
-                    // Fallback to build approach if no resource group provided
-                    armTemplate = await BuildBicepWithParametersAsync(bicepFilePath);
-                }
+                Console.WriteLine($"🔍 Using deployment what-if to get fully resolved template...");
+                armTemplate = await GetResolvedTemplateUsingWhatIfAsync(bicepFilePath, resourceGroup);
             }
             else
             {
-                // Regular bicep file - just build it
-                armTemplate = await BuildBicepFileAsync(bicepFilePath);
+                // Fallback to build approach when no resource group is provided
+                Console.WriteLine($"⚠️  No resource group provided, falling back to bicep build (may not resolve external modules properly)");
+                
+                if (Path.GetExtension(bicepFilePath).ToLowerInvariant() == ".bicepparam")
+                {
+                    armTemplate = await BuildBicepWithParametersAsync(bicepFilePath);
+                }
+                else
+                {
+                    armTemplate = await BuildBicepFileAsync(bicepFilePath);
+                }
             }
 
             return armTemplate;
@@ -150,23 +152,38 @@ public class BicepService
         return armTemplate;
     }
 
-    private async Task<JObject> GetResolvedTemplateUsingWhatIfAsync(string bicepparamFilePath, string resourceGroup)
+    private async Task<JObject> GetResolvedTemplateUsingWhatIfAsync(string bicepFilePath, string resourceGroup)
     {
         try
         {
-            // Get the referenced bicep file
-            var referencedBicepFile = await GetReferencedBicepFileAsync(bicepparamFilePath);
+            var fileExtension = Path.GetExtension(bicepFilePath).ToLowerInvariant();
+            string templateFile;
+            string argumentsString;
             
-            Console.WriteLine($"📋 Running deployment what-if to detect drift...");
+            if (fileExtension == ".bicepparam")
+            {
+                // For .bicepparam files, get the referenced bicep file
+                var referencedBicepFile = await GetReferencedBicepFileAsync(bicepFilePath);
+                templateFile = referencedBicepFile;
+                argumentsString = $"deployment group what-if --resource-group \"{resourceGroup}\" --template-file \"{referencedBicepFile}\" --parameters \"{bicepFilePath}\" --no-prompt";
+            }
+            else
+            {
+                // For .bicep files, use them directly
+                templateFile = bicepFilePath;
+                argumentsString = $"deployment group what-if --resource-group \"{resourceGroup}\" --template-file \"{bicepFilePath}\" --no-prompt";
+            }
+            
+            Console.WriteLine($"📋 Running deployment what-if to analyze template...");
+            Console.WriteLine($"   Template: {Path.GetFileName(templateFile)}");
             
             // Use az deployment group what-if to get the changes
-            // Note: what-if output is text-based, not JSON, even with --output json
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = GetAzureCLIPath(),
-                    Arguments = $"deployment group what-if --resource-group \"{resourceGroup}\" --template-file \"{referencedBicepFile}\" --parameters \"{bicepparamFilePath}\" --no-prompt",
+                    Arguments = argumentsString,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -184,42 +201,139 @@ public class BicepService
             {
                 Console.WriteLine($"⚠️  What-if command failed, falling back to build approach");
                 Console.WriteLine($"   Error: {error}");
-                return await BuildBicepWithParametersAsync(bicepparamFilePath);
+                
+                if (fileExtension == ".bicepparam")
+                {
+                    return await BuildBicepWithParametersAsync(bicepFilePath);
+                }
+                else
+                {
+                    return await BuildBicepFileAsync(bicepFilePath);
+                }
             }
 
-            Console.WriteLine($"✅ What-if analysis completed");
+            Console.WriteLine($"✅ What-if analysis completed successfully");
             
-            // Parse the what-if text output (output is suppressed, only our formatted results will be shown)
-            return ParseWhatIfTextOutput(output, referencedBicepFile, bicepparamFilePath);
+            // Parse the what-if text output
+            return ParseWhatIfTextOutput(output, templateFile, bicepFilePath);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"⚠️  Error running what-if: {ex.Message}");
             Console.WriteLine($"   Falling back to build approach");
-            return await BuildBicepWithParametersAsync(bicepparamFilePath);
+            
+            var fileExtension = Path.GetExtension(bicepFilePath).ToLowerInvariant();
+            if (fileExtension == ".bicepparam")
+            {
+                return await BuildBicepWithParametersAsync(bicepFilePath);
+            }
+            else
+            {
+                return await BuildBicepFileAsync(bicepFilePath);
+            }
         }
     }
 
-    private JObject ParseWhatIfTextOutput(string whatIfOutput, string bicepFile, string bicepparamFile)
+    private JObject ParseWhatIfTextOutput(string whatIfOutput, string templateFile, string originalFile)
     {
-        // Parse the what-if text output to extract drift information
+        // Parse the what-if text output to extract meaningful resource information
         // What-if uses symbols: = (no change), ~ (modify), + (create), - (delete), x (no effect)
+        
+        Console.WriteLine($"📋 Parsing what-if output for drift analysis...");
         
         var template = new JObject
         {
             ["$schema"] = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
             ["contentVersion"] = "1.0.0.0",
             ["parameters"] = new JObject(),
-            ["resources"] = new JArray(),
+            ["resources"] = new JObject(), // Use object format for resources
             ["_whatIfOutput"] = whatIfOutput,
-            ["_useWhatIfResults"] = true // Flag to indicate we should use what-if results directly
+            ["_useWhatIfResults"] = true, // Flag to indicate we should use what-if results directly
+            ["_templateFile"] = templateFile,
+            ["_originalFile"] = originalFile
         };
 
-        // For now, return empty resources since what-if shows no actual drift
-        // The what-if output itself is the source of truth
-        // We'll need to refactor the drift detection logic to use what-if results directly
+        // Extract resource information from what-if output
+        var resources = ParseResourcesFromWhatIfOutput(whatIfOutput);
+        
+        if (resources.Any())
+        {
+            Console.WriteLine($"📦 Extracted {resources.Count} resources from what-if analysis");
+            var resourcesObj = new JObject();
+            
+            for (int i = 0; i < resources.Count; i++)
+            {
+                resourcesObj[$"resource_{i}"] = resources[i];
+            }
+            
+            template["resources"] = resourcesObj;
+        }
+        else
+        {
+            Console.WriteLine($"📝 No resources found in what-if output - using what-if results directly for drift analysis");
+        }
         
         return template;
+    }
+
+    private List<JObject> ParseResourcesFromWhatIfOutput(string whatIfOutput)
+    {
+        var resources = new List<JObject>();
+        
+        try
+        {
+            var lines = whatIfOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                
+                // Look for resource creation lines (+ Create)
+                if (trimmedLine.StartsWith("+ ") && trimmedLine.Contains("Create"))
+                {
+                    var resourceInfo = ExtractResourceInfoFromWhatIfLine(trimmedLine);
+                    if (resourceInfo != null)
+                    {
+                        resources.Add(resourceInfo);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️  Warning: Could not parse what-if output: {ex.Message}");
+        }
+        
+        return resources;
+    }
+
+    private JObject? ExtractResourceInfoFromWhatIfLine(string line)
+    {
+        try
+        {
+            // Example line: "+ Create Microsoft.Storage/storageAccounts bettystor232340934"
+            var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            if (parts.Length >= 4 && parts[1] == "Create")
+            {
+                var resourceType = parts[2];
+                var resourceName = parts[3];
+                
+                return new JObject
+                {
+                    ["type"] = resourceType,
+                    ["name"] = resourceName,
+                    ["_fromWhatIf"] = true,
+                    ["_action"] = "create"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️  Warning: Could not parse what-if line '{line}': {ex.Message}");
+        }
+        
+        return null;
     }
 
     private async Task<string> GetReferencedBicepFileAsync(string bicepparamFilePath)
@@ -367,7 +481,20 @@ public class BicepService
                 // Extract resources from the nested template instead of the deployment resource itself
                 var nestedResources = ExtractResourcesFromModuleDeployment(resourceObj);
                 Console.WriteLine($"    📦 Found {nestedResources.Count} nested resources");
-                resources.AddRange(nestedResources);
+                
+                // Filter out nested deployment resources that are just wrappers
+                var infrastructureResources = FilterInfrastructureResources(nestedResources);
+                Console.WriteLine($"    🏗️ Infrastructure resources: {infrastructureResources.Count}");
+                
+                if (infrastructureResources.Any())
+                {
+                    resources.AddRange(infrastructureResources);
+                }
+                else
+                {
+                    // If no infrastructure resources found, include all nested resources
+                    resources.AddRange(nestedResources);
+                }
             }
             else
             {
@@ -386,7 +513,8 @@ public class BicepService
     {
         // Check if this deployment has a nested template (indicating it's a module)
         var template = deploymentResource["properties"]?["template"];
-        return template != null;
+        var templateLink = deploymentResource["properties"]?["templateLink"];
+        return template != null || templateLink != null;
     }
 
     private List<JObject> ExtractResourcesFromModuleDeployment(JObject deploymentResource)
@@ -397,10 +525,17 @@ public class BicepService
         {
             // Get the nested template and parameters from the deployment
             var nestedTemplate = deploymentResource["properties"]?["template"] as JObject;
+            var templateLink = deploymentResource["properties"]?["templateLink"];
             var deploymentParameters = deploymentResource["properties"]?["parameters"] as JObject;
             
             if (nestedTemplate != null)
             {
+                // Handle inline templates (local modules)
+                Console.WriteLine($"    📦 Processing inline module template");
+                
+                // Note: External modules are now handled by what-if analysis in the main conversion method
+                // This provides more accurate resolution of external module references
+                
                 // Create a context with resolved parameters for parameter substitution
                 var parameterContext = CreateParameterContext(deploymentParameters ?? new JObject(), nestedTemplate);
                 
@@ -419,16 +554,114 @@ public class BicepService
                     nestedResources.Add(resolvedResource);
                 }
             }
+            else if (templateLink != null)
+            {
+                // External module reference - we can't extract resources without downloading the template
+                var moduleName = deploymentResource["name"]?.ToString() ?? "unknown-module";
+                var templateUri = templateLink["uri"]?.ToString() ?? "unknown-uri";
+                
+                Console.WriteLine($"    🌐 External module reference detected: {moduleName}");
+                Console.WriteLine($"      📍 Template URI: {templateUri}");
+                Console.WriteLine($"      ⚠️  Cannot extract individual resources from external registry modules");
+                Console.WriteLine($"      💡 Recommendation: Use 'az deployment group what-if' for comprehensive external module analysis");
+                
+                // Return empty list - don't include the deployment resource itself
+                return nestedResources;
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"⚠️  Warning: Could not extract resources from module deployment: {ex.Message}");
-            // If we can't extract nested resources, fall back to including the deployment resource
-            // This ensures we don't lose track of the resource entirely
-            nestedResources.Add(deploymentResource);
+            
+            // Check if this was an external module before falling back
+            var templateLink = deploymentResource["properties"]?["templateLink"];
+            if (templateLink != null)
+            {
+                // Don't fall back to including the deployment resource for external modules
+                Console.WriteLine($"    🚫 Skipping external module due to extraction error");
+                return nestedResources;
+            }
+            else
+            {
+                // For inline modules, fall back to including the deployment resource
+                // This ensures we don't lose track of the resource entirely
+                nestedResources.Add(deploymentResource);
+            }
         }
         
         return nestedResources;
+    }
+
+
+
+    private List<JObject> FilterInfrastructureResources(List<JObject> resources)
+    {
+        return FilterInfrastructureResources(resources, 0, 10); // Max depth of 10
+    }
+
+    private List<JObject> FilterInfrastructureResources(List<JObject> resources, int currentDepth, int maxDepth)
+    {
+        var infrastructureResources = new List<JObject>();
+        
+        // Prevent infinite recursion
+        if (currentDepth >= maxDepth)
+        {
+            Console.WriteLine($"      ⚠️  Max recursion depth ({maxDepth}) reached, stopping resource extraction");
+            return infrastructureResources;
+        }
+        
+        // Define resource types that represent actual infrastructure (not deployment wrappers)
+        var infrastructureResourceTypes = new HashSet<string>
+        {
+            "Microsoft.Storage/storageAccounts",
+            "Microsoft.KeyVault/vaults",
+            "Microsoft.Network/virtualNetworks",
+            "Microsoft.Network/networkSecurityGroups",
+            "Microsoft.Network/routeTables",
+            "Microsoft.Network/publicIPAddresses",
+            "Microsoft.Network/loadBalancers",
+            "Microsoft.Compute/virtualMachines",
+            "Microsoft.Compute/virtualMachineScaleSets",
+            "Microsoft.ContainerRegistry/registries",
+            "Microsoft.ContainerService/managedClusters",
+            "Microsoft.Sql/servers",
+            "Microsoft.DBforPostgreSQL/servers",
+            "Microsoft.Cache/Redis",
+            "Microsoft.Web/sites",
+            "Microsoft.Web/serverfarms",
+            "Microsoft.EventHub/namespaces",
+            "Microsoft.ServiceBus/namespaces"
+            // Add more infrastructure resource types as needed
+        };
+        
+        foreach (var resource in resources)
+        {
+            var resourceType = resource["type"]?.ToString();
+            
+            if (!string.IsNullOrEmpty(resourceType))
+            {
+                // Check if this is an infrastructure resource
+                if (infrastructureResourceTypes.Contains(resourceType))
+                {
+                    Console.WriteLine($"      🏗️ Infrastructure resource: {resourceType} (depth: {currentDepth})");
+                    infrastructureResources.Add(resource);
+                }
+                // Check if this is a deployment that might contain more infrastructure
+                else if (resourceType == "Microsoft.Resources/deployments" && HasNestedTemplate(resource))
+                {
+                    Console.WriteLine($"      🔄 Nested deployment found at depth {currentDepth}, recursing...");
+                    var deeperResources = ExtractResourcesFromModuleDeployment(resource);
+                    var deeperInfrastructure = FilterInfrastructureResources(deeperResources, currentDepth + 1, maxDepth);
+                    infrastructureResources.AddRange(deeperInfrastructure);
+                }
+                else
+                {
+                    Console.WriteLine($"      ⚪ Skipping wrapper resource: {resourceType} (depth: {currentDepth})");
+                }
+            }
+        }
+        
+        return infrastructureResources;
     }
 
     private Dictionary<string, JToken> CreateParameterContext(JObject? deploymentParameters, JObject nestedTemplate)
