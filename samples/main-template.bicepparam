@@ -44,6 +44,12 @@ param vnetConfig = {
       privateEndpointNetworkPolicies: 'Disabled'
       privateLinkServiceNetworkPolicies: 'Enabled'
     }
+    {
+      name: 'drifttest-private-subnet-2'
+      addressPrefix: '10.0.2.0/24'
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+    }
   ]
   enableDdosProtection: false
 }

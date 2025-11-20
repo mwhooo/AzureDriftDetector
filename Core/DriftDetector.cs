@@ -40,7 +40,6 @@ public class DriftDetector
             var liveResources = await _azureCliService.GetResourcesAsync(resourceGroup);
 
             // Step 3: Compare expected vs actual using what-if results
-            Console.WriteLine("🔄 Analyzing what-if results for configuration drift...");
             var result = _comparisonService.CompareResources(expectedTemplate, liveResources);
 
             // Step 4: Generate report

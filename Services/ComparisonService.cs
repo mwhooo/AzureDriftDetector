@@ -22,7 +22,7 @@ public class ComparisonService
         // Check if we should use what-if results directly
         if (expectedTemplate["_useWhatIfResults"]?.Value<bool>() == true)
         {
-            Console.WriteLine($"📋 Using what-if results for drift detection");
+            Console.WriteLine($"🔄 Analyzing what-if results for configuration drift...");
             var rawResult = ParseWhatIfResults(expectedTemplate);
             return _ignoreService.FilterIgnoredDrifts(rawResult);
         }
@@ -285,13 +285,13 @@ public class ComparisonService
         // Check if all expected tags exist and match in actual
         foreach (var expectedTag in expected)
         {
-            if (!actual.ContainsKey(expectedTag.Key))
+            if (!actual.TryGetValue(expectedTag.Key, out var actualValue))
             {
                 return false; // Expected tag missing in actual
             }
 
             var expectedVal = expectedTag.Value?.ToString();
-            var actualVal = actual[expectedTag.Key]?.ToString();
+            var actualVal = actualValue?.ToString();
             
             if (expectedVal != actualVal)
             {

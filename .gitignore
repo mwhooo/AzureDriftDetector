@@ -406,3 +406,8 @@ drift-report-*.md
 *.bicep.json
 bicep-modules/*.json
 complex-template.json
+
+# Test files (not part of the main project)
+test-*.bicep
+test-*.bicepparam
+*-analysis.md

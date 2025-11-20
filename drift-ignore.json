@@ -14,6 +14,43 @@
         "conditions": {
           "skuTier": "Basic"
         }
+      },
+      {
+        "resourceType": "Microsoft.Storage/storageAccounts",
+        "reason": "AVM modules set explicit compliance properties that Azure doesn't set by default",
+        "ignoredProperties": [
+          "properties.customDomain.useSubDomainName",
+          "properties.customDomain"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.Storage/storageAccounts/blobServices",
+        "reason": "AVM storage modules manage retention policies explicitly for compliance",
+        "ignoredProperties": [
+          "properties.deleteRetentionPolicy.allowPermanentDelete",
+          "properties.automaticSnapshotPolicyEnabled",
+          "properties.containerDeleteRetentionPolicy.allowPermanentDelete",
+          "properties.lastAccessTimeTrackingPolicy"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.Network/publicIPAddresses",
+        "reason": "Azure automatically adds DDoS protection settings to public IPs",
+        "ignoredProperties": [
+          "properties.ddosSettings"
+        ]
+      },
+      {
+        "resourceType": "unknown",
+        "reason": "What-if parsing fallback: Handles edge cases where resource type extraction fails but drift analysis creates generic 'unknown' entries. This prevents false positives from parsing artifacts rather than legitimate resource drift.",
+        "conditions": {
+          "property": "name",
+          "operator": "equals",
+          "value": "unnamed"
+        },
+        "ignoredProperties": [
+          "resource"
+        ]
       }
     ],
     "globalPatterns": [

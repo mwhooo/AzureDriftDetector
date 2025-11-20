@@ -36,6 +36,16 @@ public class DriftIgnoreService
             
             return config ?? new DriftIgnoreConfiguration();
         }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"⚠️  Warning: Invalid JSON in ignore configuration: {ex.Message}");
+            return new DriftIgnoreConfiguration();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Console.WriteLine($"⚠️  Warning: Access denied reading ignore configuration: {ex.Message}");
+            return new DriftIgnoreConfiguration();
+        }
         catch (Exception ex)
         {
             Console.WriteLine($"⚠️  Warning: Failed to load ignore configuration: {ex.Message}");

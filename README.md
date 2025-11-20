@@ -21,6 +21,7 @@ The Azure Configuration Drift Detector helps maintain **IaC compliance** by iden
 - **Multi-Resource Support**: Works with any Azure resource type (VNets, Storage, Key Vault, App Services, NSGs, etc.)
 - **Property-Level Comparison**: Detects specific property changes with precise Expected vs Actual reporting
 - **Complex Object Handling**: Intelligent reporting for arrays and nested objects
+- **External Module Support**: Full support for Azure Container Registry modules (`br:` syntax) and Azure Verified Modules (AVM)
 
 ### 🎨 **Type-Safe Bicep with User-Defined Types (UDTs)**
 - **Exported Types**: Each Bicep module exports its own configuration types with `@export()`
@@ -52,6 +53,7 @@ The Azure Configuration Drift Detector helps maintain **IaC compliance** by iden
 
 ### 🔇 **Intelligent Drift Filtering**
 - **Noise Suppression**: Advanced ignore system to filter out Azure platform behaviors and false positives
+- **AVM Noise Filtering**: Specialized suppression for Azure Verified Modules compliance properties
 - **Resource-Specific Rules**: Target specific resource types with conditional filtering
 - **Global Patterns**: Apply ignore rules across all resource types for common Azure properties
 - **Conditional Logic**: Rules that apply only when specific conditions are met (SKU tier, resource kind, etc.)
@@ -94,6 +96,9 @@ dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --out
 
 # Use custom ignore configuration to suppress Azure platform noise
 dotnet run -- --bicep-file template.bicep --resource-group myResourceGroup --ignore-config custom-ignore.json
+
+# Works with external Azure Container Registry modules and Azure Verified Modules (AVM)
+dotnet run -- --bicep-file template-with-external-modules.bicep --resource-group myResourceGroup --ignore-config drift-ignore.json
 
 # See docs/DRIFT-IGNORE.md for comprehensive ignore configuration guide
 ```
@@ -253,6 +258,87 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = if (deployKeyVault) {
 ```
 
 **Result:** When `deployKeyVault = false`, the detector **excludes** the Key Vault from drift analysis, preventing false positives.
+
+## 🔗 External Module Support
+
+### Azure Container Registry Integration
+The tool provides comprehensive support for external Bicep modules from Azure Container Registry and Azure Verified Modules (AVM):
+
+#### Supported Module Syntax
+```bicep
+// Azure Container Registry modules
+module myModule 'br:myregistry.azurecr.io/bicep/storage/account:v1.0.0' = { ... }
+
+// Public Azure Verified Modules
+module avm 'br/public:avm/res/storage/storage-account:0.9.1' = { ... }
+
+// Private registry modules  
+module private 'br:private.azurecr.io/modules/networking/vnet:latest' = { ... }
+```
+
+#### Key Features
+- **Automatic Resolution**: External modules resolved via Azure what-if analysis
+- **No Manual Downloads**: Modules processed automatically without local caching
+- **Complex Dependencies**: Handles module chains and nested external references
+- **Mixed Templates**: Supports templates combining external modules with direct resources
+
+#### AVM Noise Suppression
+Azure Verified Modules often set compliance properties that differ from Azure defaults, creating false positive drift alerts. The tool includes comprehensive ignore patterns:
+
+```json
+{
+  "resourceType": "Microsoft.Storage/storageAccounts", 
+  "reason": "AVM modules set explicit compliance properties",
+  "ignoredProperties": [
+    "properties.customDomain.useSubDomainName",
+    "properties.customDomain"
+  ]
+}
+```
+
+**Note:** Use the included `drift-ignore.json` configuration file with `--ignore-config drift-ignore.json` to suppress common AVM noise patterns
+
+### Example: Mixed External and Direct Resources
+```bicep
+// External AVM storage module
+module storageModule 'br:myregistry.azurecr.io/bicep/storage/storageaccount:v1.1.0' = {
+  params: {
+    config: {
+      name: 'mystorageaccount'
+      location: 'uksouth'
+      sku: 'Standard_LRS'
+    }
+  }
+}
+
+// Direct Azure resource
+resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
+  name: 'myapp-nsg'
+  location: 'uksouth'
+  properties: {
+    securityRules: [
+      {
+        name: 'allow-http'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '80'
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 1000
+        }
+      }
+    ]
+  }
+}
+```
+
+**Drift Detection with Noise Filtering:**
+```bash
+🔇 Ignoring drift: Microsoft.Storage/storageAccounts - properties.customDomain
+🔇 Ignoring drift: Microsoft.Storage/storageAccounts/blobServices - properties.deleteRetentionPolicy
+✅ No configuration drift detected after filtering 4 ignored drift(s)
+```
 
 ## 🔇 Drift Ignore Configuration
 
@@ -645,7 +731,7 @@ Perfect for CI/CD pipelines and infrastructure validation workflows!
 ## 📝 Changelog
 
 ### v3.2.0 (2025-11-15) - Comprehensive Drift Ignore System 🔇
-**Production-Ready Noise Reduction**
+**Noise Reduction**
 
 #### 🔇 **Drift Ignore System**
 - ✨ **Configurable Ignore Patterns**: JSON-based configuration for suppressing Azure platform noise
