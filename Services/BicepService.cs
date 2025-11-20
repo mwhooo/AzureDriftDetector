@@ -5,6 +5,8 @@ namespace AzureDriftDetector.Services;
 
 public class BicepService
 {
+    private const int MaxRecursionDepth = 10;
+    
     public async Task<JObject> ConvertBicepToArmAsync(string bicepFilePath)
     {
         return await ConvertBicepToArmAsync(bicepFilePath, null);
@@ -246,7 +248,7 @@ public class BicepService
             ["$schema"] = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
             ["contentVersion"] = "1.0.0.0",
             ["parameters"] = new JObject(),
-            ["resources"] = new JObject(), // Use object format for resources
+            ["resources"] = new JObject(), // NOTE: We use object format for resources here (instead of the standard ARM template array) because the what-if output is not structured as a standard ARM template. This allows us to map and analyze resources for drift detection more easily during what-if processing.
             ["_whatIfOutput"] = whatIfOutput,
             ["_useWhatIfResults"] = true, // Flag to indicate we should use what-if results directly
             ["_templateFile"] = templateFile,
@@ -596,7 +598,7 @@ public class BicepService
 
     private List<JObject> FilterInfrastructureResources(List<JObject> resources)
     {
-        return FilterInfrastructureResources(resources, 0, 10); // Max depth of 10
+        return FilterInfrastructureResources(resources, 0, MaxRecursionDepth);
     }
 
     private List<JObject> FilterInfrastructureResources(List<JObject> resources, int currentDepth, int maxDepth)
