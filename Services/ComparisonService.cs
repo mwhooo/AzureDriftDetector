@@ -1567,6 +1567,12 @@ public class ComparisonService
         else if (symbol == '+')
         {
             // Added property
+            // Skip empty or whitespace-only values that are likely structural Azure defaults
+            if (string.IsNullOrWhiteSpace(valuesPart) || valuesPart.Trim() == "\"\"" || valuesPart.Trim() == "{}")
+            {
+                return null; // Skip these structural empty additions
+            }
+            
             expectedValue = "not set";
             actualValue = valuesPart.Trim('"');
             driftType = DriftType.Added;
@@ -1575,6 +1581,12 @@ public class ComparisonService
         {
             // Removed property - this means the property exists in Azure but will be deleted by template
             // So it's an "extra" property in Azure that's not wanted by the template
+            // Skip empty or whitespace-only values that are likely structural Azure defaults
+            if (string.IsNullOrWhiteSpace(valuesPart) || valuesPart.Trim() == "\"\"" || valuesPart.Trim() == "{}")
+            {
+                return null; // Skip these structural empty removals
+            }
+            
             expectedValue = "not set";
             actualValue = valuesPart.Trim('"');
             driftType = DriftType.Added;

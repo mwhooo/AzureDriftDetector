@@ -39,6 +39,14 @@
         "ignoredProperties": [
           "properties.ddosSettings"
         ]
+      },
+      {
+        "resourceType": "Microsoft.KeyVault/vaults",
+        "reason": "Azure automatically adds platform properties to Key Vaults",
+        "ignoredProperties": [
+          "properties.createMode",
+          "properties.networkAcls"
+        ]
       }
     ],
     "globalPatterns": [
