@@ -1294,7 +1294,8 @@ public class ComparisonService
                 // Save previous property drift with details if exists
                 if (currentPropertyDrift != null && complexObjectDetails.Count > 0)
                 {
-                    currentPropertyDrift.ActualValue = string.Join("\n", complexObjectDetails);
+                    // Use formatted details instead of raw join
+                    currentPropertyDrift.ActualValue = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
                     currentPropertyDrift = null;
                     complexObjectDetails.Clear();
                 }
@@ -1384,6 +1385,21 @@ public class ComparisonService
                     {
                         var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
                         currentPropertyDrift.ActualValue = formattedDetails;
+                        
+                        // Update Expected value for clarity - especially for NSG rules and other complex objects
+                        if (currentPropertyDrift.PropertyPath.Contains("securityRules"))
+                        {
+                            currentPropertyDrift.ExpectedValue = "Rule should exist as configured in template";
+                        }
+                        else if (currentPropertyDrift.PropertyPath.Contains("subnets"))
+                        {
+                            currentPropertyDrift.ExpectedValue = "Subnet should exist as configured in template";
+                        }
+                        else
+                        {
+                            currentPropertyDrift.ExpectedValue = "Template configuration";
+                        }
+                        
                         currentPropertyDrift = null;
                         complexObjectDetails.Clear();
                     }
@@ -1394,17 +1410,12 @@ public class ComparisonService
                         currentResourceDrift.PropertyDrifts.Add(propertyDrift);
                         
                         // Check if this is a complex object/array that might have details in following lines
-                        if (propertyDrift.ActualValue?.ToString() == "differs in Azure (complex object/array)")
+                        var actualValue = propertyDrift.ActualValue?.ToString() ?? "";
+                        if (actualValue == "differs in Azure (complex object/array)" || 
+                            actualValue == "configuration differs (details will be analyzed)")
                         {
                             currentPropertyDrift = propertyDrift;
                             complexObjectDetails.Clear();
-                            
-                            // Update expected value to be more descriptive for arrays
-                            if (propertyDrift.PropertyPath.Contains("securityRules") || 
-                                propertyDrift.PropertyPath.Contains("Rules"))
-                            {
-                                propertyDrift.ExpectedValue = "Template configuration";
-                            }
                         }
                     }
                 }
@@ -1427,6 +1438,20 @@ public class ComparisonService
             // Format the details with a helpful summary
             var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
             currentPropertyDrift.ActualValue = formattedDetails;
+            
+            // Update Expected value for clarity - especially for NSG rules and other complex objects
+            if (currentPropertyDrift.PropertyPath.Contains("securityRules"))
+            {
+                currentPropertyDrift.ExpectedValue = "Rule should exist as configured in template";
+            }
+            else if (currentPropertyDrift.PropertyPath.Contains("subnets"))
+            {
+                currentPropertyDrift.ExpectedValue = "Subnet should exist as configured in template";
+            }
+            else
+            {
+                currentPropertyDrift.ExpectedValue = "Template configuration";
+            }
         }
         
         // Add the last resource drift if still pending
@@ -1554,7 +1579,7 @@ public class ComparisonService
                 if (valuesPart.StartsWith("[") || valuesPart.StartsWith("{"))
                 {
                     expectedValue = "configured in template";
-                    actualValue = "differs in Azure (complex object/array)";
+                    actualValue = "configuration differs (details will be analyzed)";
                 }
                 else
                 {
@@ -1620,6 +1645,55 @@ public class ComparisonService
 
     private string FormatComplexObjectDetails(List<string> details, string propertyPath)
     {
+        // Simple approach for NSG rules - always return clear message
+        if (propertyPath.Contains("securityRules"))
+        {
+            // Try to extract ALL rule names from details
+            var allText = string.Join("\n", details);
+            var nameMatches = System.Text.RegularExpressions.Regex.Matches(allText, @"name:\s*""([^""]+)""");
+            
+            var ruleNames = nameMatches.Cast<System.Text.RegularExpressions.Match>()
+                                       .Select(m => m.Groups[1].Value)
+                                       .Distinct()
+                                       .ToList();
+            
+            // Check if this is an addition (missing rule)
+            if (allText.Contains("+ ") || allText.StartsWith("+"))
+            {
+                if (ruleNames.Count > 1)
+                {
+                    return $"{ruleNames.Count} security rules are missing from Azure: {string.Join(", ", ruleNames.Select(n => $"'{n}'"))}";
+                }
+                else if (ruleNames.Count == 1)
+                {
+                    return $"Security rule '{ruleNames[0]}' is missing from Azure";
+                }
+                return "Security rule(s) are missing from Azure";
+            }
+            // Check if this is a removal (extra rule) 
+            else if (allText.Contains("- ") || allText.StartsWith("-"))
+            {
+                if (ruleNames.Count > 1)
+                {
+                    return $"{ruleNames.Count} extra security rules exist in Azure (not in template): {string.Join(", ", ruleNames.Select(n => $"'{n}'"))}";
+                }
+                else if (ruleNames.Count == 1)
+                {
+                    return $"Extra security rule '{ruleNames[0]}' exists in Azure (not in template)";
+                }
+                return "Extra security rule(s) exist in Azure (not in template)";
+            }
+            // Modified rule
+            else
+            {
+                if (ruleNames.Count > 0)
+                {
+                    return $"Security rule '{ruleNames[0]}' configuration differs from template";
+                }
+                return "Security rule configuration differs from template";
+            }
+        }
+        
         if (details.Count == 0) return "differs in Azure (complex object/array)";
         
         // Filter out structural characters like ]
@@ -1629,6 +1703,22 @@ public class ComparisonService
         
         // Check if this is an array change with items being added/removed
         var firstLine = meaningfulDetails.FirstOrDefault()?.Trim() ?? "";
+        
+        // Simple approach: Check what type of change this is
+        if (firstLine.StartsWith("+"))
+        {
+            return "Missing from Azure (will be added by template)";
+        }
+        
+        if (firstLine.StartsWith("-"))
+        {
+            return "Extra configuration exists in Azure (not in template)";
+        }
+        
+        if (firstLine.StartsWith("~"))
+        {
+            return "Configuration differs from template";
+        }
         
         // Check for array index patterns like "+ 0:", "- 1:", "~ 2:", etc.
         var indexPattern = System.Text.RegularExpressions.Regex.Match(firstLine, @"^([+\-~])\s*(\d+):\s*$");
@@ -1641,15 +1731,15 @@ public class ComparisonService
             
             if (symbol == '+')
             {
-                action = "Adding";
+                action = "Missing in Azure (will be added)";
             }
             else if (symbol == '-')
             {
-                action = "Removing";
+                action = "Extra in Azure (will be removed)";
             }
             else // symbol == '~'
             {
-                action = "Modifying";
+                action = "Modified in Azure";
             }
             
             if (propertyPath.Contains("securityRules"))
@@ -1709,10 +1799,25 @@ public class ComparisonService
                     }
                 }
                 
-                // For additions, show all details
+                // For additions, show a clear summary instead of raw details
                 if (symbol == '+')
                 {
-                    return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1).Select(d => $"  {d.Trim()}"));
+                    // For NSG rules, provide a much clearer message
+                    if (propertyPath.Contains("securityRules"))
+                    {
+                        // Extract the actual rule name from details if possible
+                        var nameMatch = System.Text.RegularExpressions.Regex.Match(string.Join("", meaningfulDetails), @"name:\s*""([^""]+)""");
+                        if (nameMatch.Success)
+                        {
+                            var ruleName = nameMatch.Groups[1].Value;
+                            return $"Security rule '{ruleName}' is missing from Azure (will be added by template)";
+                        }
+                        else
+                        {
+                            return "Security rule is missing from Azure (will be added by template)";
+                        }
+                    }
+                    return $"{action} {ruleIdentifier}";
                 }
                 
                 return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
