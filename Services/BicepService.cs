@@ -340,6 +340,17 @@ public class BicepService
                     {
                         obj["name"] = resourceName;
                     }
+                    else
+                    {
+                        // Skip resources without valid names to prevent "unknown" entries
+                        return null;
+                    }
+                }
+                else
+                {
+                    // For resources without names (likely parsing artifacts), skip them
+                    Console.WriteLine($"📝 Skipping what-if line without resource name: {line.Trim()}");
+                    return null;
                 }
                 
                 return obj;

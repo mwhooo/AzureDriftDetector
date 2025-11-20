@@ -1308,6 +1308,12 @@ public class ComparisonService
                 // Extract resource info
                 var resourceInfo = ExtractResourceInfoFromWhatIfLine(trimmedLine);
                 
+                // Skip resources that couldn't be parsed properly
+                if (resourceInfo.type == "skip" && resourceInfo.name == "skip")
+                {
+                    continue;
+                }
+                
                 if (firstChar == '~')
                 {
                     // Modified resource - create drift object to collect property changes
@@ -1446,6 +1452,14 @@ public class ComparisonService
         if (parts.Length >= 2)
         {
             var resourcePath = parts[1];
+            
+            // Skip malformed or invalid resource paths
+            if (string.IsNullOrWhiteSpace(resourcePath) || !resourcePath.Contains('/'))
+            {
+                Console.WriteLine($"📝 Skipping malformed what-if line: {line.Trim()}");
+                return ("skip", "skip"); // Use special marker to indicate skipping
+            }
+            
             var pathParts = resourcePath.Split('/');
             
             if (pathParts.Length >= 3)
@@ -1467,12 +1481,22 @@ public class ComparisonService
                     // Regular resource
                     var resourceType = $"{pathParts[0]}/{pathParts[1]}";
                     var resourceName = pathParts[2];
+                    
+                    // Validate that we have meaningful values
+                    if (string.IsNullOrWhiteSpace(resourceName))
+                    {
+                        Console.WriteLine($"📝 Skipping what-if line with empty resource name: {line.Trim()}");
+                        return ("skip", "skip");
+                    }
+                    
                     return (resourceType, resourceName);
                 }
             }
         }
         
-        return ("unknown", "unknown");
+        // Log the problematic line for debugging
+        Console.WriteLine($"📝 Could not parse what-if line, skipping: {line.Trim()}");
+        return ("skip", "skip"); // Use special marker instead of unknown
     }
 
     private PropertyDrift? ExtractPropertyDriftFromWhatIfLine(string line)
