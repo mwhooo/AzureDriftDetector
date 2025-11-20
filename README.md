@@ -296,7 +296,7 @@ Azure Verified Modules often set compliance properties that differ from Azure de
 }
 ```
 
-**📖 Need AVM noise suppression?** Use the included `drift-ignore.json` configuration file with `--ignore-config drift-ignore.json`
+**Note:** Use the included `drift-ignore.json` configuration file with `--ignore-config drift-ignore.json` to suppress common AVM noise patterns
 
 ### Example: Mixed External and Direct Resources
 ```bicep
@@ -731,7 +731,7 @@ Perfect for CI/CD pipelines and infrastructure validation workflows!
 ## 📝 Changelog
 
 ### v3.2.0 (2025-11-15) - Comprehensive Drift Ignore System 🔇
-**Production-Ready Noise Reduction**
+**Noise Reduction**
 
 #### 🔇 **Drift Ignore System**
 - ✨ **Configurable Ignore Patterns**: JSON-based configuration for suppressing Azure platform noise

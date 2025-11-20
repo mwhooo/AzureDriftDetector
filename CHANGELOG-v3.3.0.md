@@ -195,4 +195,4 @@ dotnet run -- --bicep-file test-external-module.bicep --resource-group yourRG --
 - Production validation with real enterprise templates
 - Mixed architecture support and testing
 
-**🎉 This release makes the Azure Configuration Drift Detector fully enterprise-ready for complex AVM and external module scenarios!**
+This release improves support for complex Bicep scenarios including external modules and AVM integration.

@@ -40,11 +40,11 @@ This major release introduces comprehensive support for external Bicep modules f
 - ✅ Automatic remediation with complex modules
 - ✅ Clean reporting with filtered noise
 
-### 📊 Enterprise Impact
-- **Reduced Noise**: 90%+ reduction in false positives from AVM modules
-- **Faster Triage**: Clear distinction between real drift and platform behavior
-- **Automated Workflows**: Reliable CI/CD integration with external modules
-- **Enterprise Scale**: Production-ready for complex multi-module templates
+### 📊 Impact
+- **Reduced Noise**: Significant reduction in false positives from AVM modules
+- **Improved Clarity**: Better distinction between real drift and platform behavior
+- **Enhanced Workflows**: Improved CI/CD integration with external modules
+- **Complex Scenarios**: Support for multi-module template architectures
 
 ### 🔄 Breaking Changes
 None - this release is fully backward compatible.
@@ -52,7 +52,7 @@ None - this release is fully backward compatible.
 ### 📋 Migration Guide
 No changes required. New external module support and AVM noise filtering available immediately.
 
-**🎉 This release makes the tool fully enterprise-ready for complex AVM and external module scenarios!**
+This release improves support for AVM and external module scenarios.
 
 ---
 
