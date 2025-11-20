@@ -22,7 +22,7 @@ public class ComparisonService
         // Check if we should use what-if results directly
         if (expectedTemplate["_useWhatIfResults"]?.Value<bool>() == true)
         {
-            Console.WriteLine($"📋 Using what-if results for drift detection");
+            Console.WriteLine($"🔄 Analyzing what-if results for configuration drift...");
             var rawResult = ParseWhatIfResults(expectedTemplate);
             return _ignoreService.FilterIgnoredDrifts(rawResult);
         }
