@@ -285,13 +285,13 @@ public class ComparisonService
         // Check if all expected tags exist and match in actual
         foreach (var expectedTag in expected)
         {
-            if (!actual.ContainsKey(expectedTag.Key))
+            if (!actual.TryGetValue(expectedTag.Key, out var actualValue))
             {
                 return false; // Expected tag missing in actual
             }
 
             var expectedVal = expectedTag.Value?.ToString();
-            var actualVal = actual[expectedTag.Key]?.ToString();
+            var actualVal = actualValue?.ToString();
             
             if (expectedVal != actualVal)
             {

@@ -57,7 +57,7 @@ public class BicepService
 
     private async Task<JObject> BuildBicepFileAsync(string bicepFilePath)
     {
-        var process = new Process
+        using var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
@@ -90,7 +90,7 @@ public class BicepService
         var referencedBicepFile = await GetReferencedBicepFileAsync(bicepparamFilePath);
         
         // First, build the bicep template to get the ARM template structure
-        var bicepBuildProcess = new Process
+        using var bicepBuildProcess = new Process
         {
             StartInfo = new ProcessStartInfo
             {
@@ -117,7 +117,7 @@ public class BicepService
         var armTemplate = JObject.Parse(bicepOutput);
 
         // Now get the parameter values from the bicepparam file
-        var paramsBuildProcess = new Process
+        using var paramsBuildProcess = new Process
         {
             StartInfo = new ProcessStartInfo
             {
@@ -180,7 +180,7 @@ public class BicepService
             Console.WriteLine($"   Template: {Path.GetFileName(templateFile)}");
             
             // Use az deployment group what-if to get the changes
-            var process = new Process
+            using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
@@ -404,13 +404,13 @@ public class BicepService
             {
                 foreach (var param in templateParams.Properties().ToList())
                 {
-                    if (parameterValues.ContainsKey(param.Name))
+                    if (parameterValues.TryGetValue(param.Name, out var paramValue))
                     {
                         // Update the parameter with the resolved value
                         var paramObj = param.Value as JObject;
                         if (paramObj != null)
                         {
-                            paramObj["defaultValue"] = parameterValues[param.Name];
+                            paramObj["defaultValue"] = paramValue;
                         }
                     }
                 }
@@ -719,13 +719,13 @@ public class BicepService
             {
                 // Extract parameter name from [parameters('paramName')]
                 var paramName = stringValue.Substring(13, stringValue.Length - 16);
-                if (parameterContext.ContainsKey(paramName))
+                if (parameterContext.TryGetValue(paramName, out var resolvedValue))
                 {
                     // Replace with resolved value
                     var parent = value.Parent;
                     if (parent is JProperty prop)
                     {
-                        prop.Value = parameterContext[paramName];
+                        prop.Value = resolvedValue;
                     }
                 }
             }
