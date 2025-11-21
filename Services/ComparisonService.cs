@@ -1733,82 +1733,10 @@ public class ComparisonService
                 action = "Modified in Azure";
             }
             
-            if (propertyPath.Contains("securityRules"))
-            {
-                var ruleIdentifier = $"security rule #{index}";
-                
-                // Try to extract rule name from the details
-                var namePattern = meaningfulDetails.FirstOrDefault(d => d.Contains("name:"));
-                if (namePattern != null)
-                {
-                    var parts = namePattern.Split('\"');
-                    if (parts.Length >= 2)
-                    {
-                        ruleIdentifier = $"security rule '{parts[1]}'";
-                    }
-                }
-                
-                // For modifications, extract what changed
-                if (symbol == '~')
-                {
-                    // Look for property changes (lines with =>)
-                    var propertyChanges = meaningfulDetails.Skip(1).Where(d => d.Contains("=>")).ToList();
-                    
-                    if (propertyChanges.Count == 1)
-                    {
-                        // Single property change
-                        var change = propertyChanges[0].Trim();
-                        if (change.StartsWith("~"))
-                        {
-                            change = change.Substring(1).Trim();
-                        }
-                        
-                        var arrowIndex = change.IndexOf("=>");
-                        if (arrowIndex > 0)
-                        {
-                            var colonIndex = change.IndexOf(":");
-                            if (colonIndex > 0 && colonIndex < arrowIndex)
-                            {
-                                var propName = change.Substring(0, colonIndex).Trim();
-                                var oldValue = change.Substring(colonIndex + 1, arrowIndex - colonIndex - 1).Trim();
-                                var newValue = change.Substring(arrowIndex + 2).Trim();
-                                return $"{action} {ruleIdentifier}: {propName} changed from {oldValue} to {newValue}";
-                            }
-                        }
-                    }
-                    else if (propertyChanges.Count > 1)
-                    {
-                        // Multiple properties changed
-                        var changeDescriptions = new List<string> { $"{action} {ruleIdentifier}:" };
-                        foreach (var change in propertyChanges)
-                        {
-                            var cleanChange = change.Trim();
-                            if (cleanChange.StartsWith("~")) cleanChange = cleanChange.Substring(1).Trim();
-                            changeDescriptions.Add($"  • {cleanChange}");
-                        }
-                        return string.Join("\n", changeDescriptions);
-                    }
-                }
-                
-                // For additions, show a clear summary instead of raw details
-                if (symbol == '+')
-                {
-                    // Extract the actual rule name from details if possible
-                    var nameMatch = System.Text.RegularExpressions.Regex.Match(string.Join("", meaningfulDetails), @"name:\s*""([^""]+)""");
-                    if (nameMatch.Success)
-                    {
-                        var ruleName = nameMatch.Groups[1].Value;
-                        return $"Security rule '{ruleName}' is missing from Azure (will be added by template)";
-                    }
-                    else
-                    {
-                        return "Security rule is missing from Azure (will be added by template)";
-                    }
-                }
-                
-                return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
-            }
-            else if (propertyPath.Contains("subnets"))
+            // Note: securityRules are already fully handled above with early returns (lines 1640-1686)
+            // No need for additional securityRules handling here
+            
+            if (propertyPath.Contains("subnets"))
             {
                 return $"{action} subnet #{index}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
             }
