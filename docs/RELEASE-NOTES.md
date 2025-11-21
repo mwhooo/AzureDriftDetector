@@ -17,6 +17,24 @@ Bug fix release that eliminates duplicate ignore messages in console output, imp
 
 ---
 
+## Version 3.5.0 - Unknown Resource Type Display & Skip Sentinel Improvements (2025-11-21)
+
+### 🎯 Summary
+This release improves drift detection robustness by handling unknown resource types gracefully and introducing skip sentinel values for better resource parsing and error handling.
+
+### 🐛 Bug Fixes & Improvements
+- **Unknown Resource Type Display**: Fixed issue where unknown or unparseable resource types caused confusing output; now displayed clearly in drift reports
+- **Skip Sentinel Values**: Introduced `SKIP_MARKER` constant to mark resources or properties that should be ignored during parsing, preventing false positives
+- **Improved Resource Parsing**: Enhanced parsing logic to handle edge cases and malformed resource definitions more reliably
+
+### 🔧 Technical Details
+- Added `SKIP_MARKER` constant to replace magic "skip" strings throughout codebase
+- Updated resource parsing engine to recognize and process skip sentinel values
+- Improved error handling for unsupported or malformed resource definitions
+- Better visibility for debugging when resource types cannot be determined
+
+---
+
 ## Version 3.3.0 - External Bicep Modules & Azure Verified Modules (AVM) Support (2025-11-20)
 
 ### 🎯 Summary

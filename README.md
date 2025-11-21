@@ -719,11 +719,6 @@ This project demonstrates advanced techniques for:
 - `0`: No configuration drift detected
 - `1`: Configuration drift detected or error occurred
 
-## 📄 Exit Codes
-
-- `0`: No configuration drift detected
-- `1`: Configuration drift detected or error occurred
-
 Suitable for CI/CD pipelines and infrastructure validation workflows.
 
 ## 📝 Changelog

@@ -6,6 +6,8 @@ namespace AzureDriftDetector.Services;
 
 public class ComparisonService
 {
+    private const string SKIP_MARKER = "skip";
+    private const string SKIP_MARKER = "skip";
     private readonly JsonDiffPatch _jsonDiffPatch;
     private readonly DriftIgnoreService _ignoreService;
 
@@ -1311,7 +1313,7 @@ public class ComparisonService
                 var resourceInfo = ExtractResourceInfoFromWhatIfLine(trimmedLine);
                 
                 // Skip resources that couldn't be parsed properly
-                if (resourceInfo.type == "skip" && resourceInfo.name == "skip")
+                if (resourceInfo.type == SKIP_MARKER && resourceInfo.name == SKIP_MARKER)
                 {
                     continue;
                 }
@@ -1457,7 +1459,7 @@ public class ComparisonService
             if (string.IsNullOrWhiteSpace(resourcePath) || !resourcePath.Contains('/'))
             {
                 Console.WriteLine($"📝 Skipping malformed what-if line: {line.Trim()}");
-                return ("skip", "skip"); // Use special marker to indicate skipping
+                return (SKIP_MARKER, SKIP_MARKER); // Use special marker to indicate skipping
             }
             
             var pathParts = resourcePath.Split('/');
@@ -1486,7 +1488,7 @@ public class ComparisonService
                     if (string.IsNullOrWhiteSpace(resourceName))
                     {
                         Console.WriteLine($"📝 Skipping what-if line with empty resource name: {line.Trim()}");
-                        return ("skip", "skip");
+                        return (SKIP_MARKER, SKIP_MARKER);
                     }
                     
                     return (resourceType, resourceName);
@@ -1496,7 +1498,7 @@ public class ComparisonService
         
         // Log the problematic line for debugging
         Console.WriteLine($"📝 Could not parse what-if line, skipping: {line.Trim()}");
-        return ("skip", "skip"); // Use special marker instead of unknown
+        return (SKIP_MARKER, SKIP_MARKER); // Use special marker instead of unknown
     }
 
     private PropertyDrift? ExtractPropertyDriftFromWhatIfLine(string line)
@@ -1618,13 +1620,18 @@ public class ComparisonService
         return $"Configuration drift detected in {driftCount} resource(s) with {propertyDriftCount} property difference(s).";
     }
 
+    /// <summary>
+    /// Updates the expected value description for complex object drift based on the property path.
+    /// Provides user-friendly descriptions for security rules, subnets, and other complex objects.
+    /// </summary>
+    /// <param name="propertyDrift">The property drift object to update.</param>
     private void UpdateExpectedValueForComplexObject(PropertyDrift propertyDrift)
     {
-        if (propertyDrift.PropertyPath.Contains("securityRules"))
+        if (propertyDrift.PropertyPath.Contains("securityRules", StringComparison.OrdinalIgnoreCase))
         {
             propertyDrift.ExpectedValue = "Rule should exist as configured in template";
         }
-        else if (propertyDrift.PropertyPath.Contains("subnets"))
+        else if (propertyDrift.PropertyPath.Contains("subnets", StringComparison.OrdinalIgnoreCase))
         {
             propertyDrift.ExpectedValue = "Subnet should exist as configured in template";
         }
@@ -1634,10 +1641,17 @@ public class ComparisonService
         }
     }
 
+    /// <summary>
+    /// Formats complex object details from Azure what-if output into user-friendly messages.
+    /// Handles special formatting for NSG security rules, subnets, and other resource types.
+    /// </summary>
+    /// <param name="details">Raw detail lines from what-if output, representing differences for a complex property.</param>
+    /// <param name="propertyPath">The property path being analyzed (e.g., "properties.securityRules", "properties.subnets").</param>
+    /// <returns>A formatted, user-friendly description of the configuration drift for the complex object.</returns>
     private string FormatComplexObjectDetails(List<string> details, string propertyPath)
     {
         // Simple approach for NSG rules - always return clear message
-        if (propertyPath.Contains("securityRules"))
+        if (propertyPath.Contains("securityRules", StringComparison.OrdinalIgnoreCase))
         {
             // Try to extract ALL rule names from details
             var allText = string.Join("\n", details);
@@ -1648,8 +1662,8 @@ public class ComparisonService
                                        .Distinct()
                                        .ToList();
             
-            // Check if this is an addition (missing rule)
-            if (allText.Contains("+ ") || allText.StartsWith("+"))
+            // Check if this is an addition (missing rule) - check if any line starts with "+"
+            if (details.Any(d => d.Trim().StartsWith("+")))
             {
                 if (ruleNames.Count > 1)
                 {
@@ -1661,8 +1675,8 @@ public class ComparisonService
                 }
                 return "Security rule(s) are missing from Azure";
             }
-            // Check if this is a removal (extra rule) 
-            else if (allText.Contains("- ") || allText.StartsWith("-"))
+            // Check if this is a removal (extra rule) - check if any line starts with "-"
+            else if (details.Any(d => d.Trim().StartsWith("-")))
             {
                 if (ruleNames.Count > 1)
                 {
