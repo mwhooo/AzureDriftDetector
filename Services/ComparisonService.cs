@@ -1311,7 +1311,7 @@ public class ComparisonService
                 // Extract resource info
                 var resourceInfo = ExtractResourceInfoFromWhatIfLine(trimmedLine);
                 
-                // Skip resources that couldn't be parsed properly
+                // Skip resources marked with SKIP_MARKER (indicates unparseable lines or malformed what-if output)
                 if (resourceInfo.type == SKIP_MARKER && resourceInfo.name == SKIP_MARKER)
                 {
                     continue;
@@ -1566,22 +1566,35 @@ public class ComparisonService
         }
         else if (symbol == '+')
         {
-            // Added property
-            // Skip empty or whitespace-only values that are likely structural Azure defaults
+            // Missing property - will be added by template (property is missing from Azure)
+            // 
+            // Filter empty values: These are typically Azure platform defaults that create noise without value.
+            // Examples: properties.someField: "" or properties.tags: {}
+            // Rationale: Empty strings/objects rarely represent meaningful drift in practice.
+            // Users almost never care about drift from null/undefined to "" or {}.
+            // 
+            // Future enhancement: If specific scenarios require seeing empty value drift,
+            // this could be made configurable via drift-ignore.json with an "allowEmptyValues" setting.
             if (string.IsNullOrWhiteSpace(valuesPart) || valuesPart.Trim() == "\"\"" || valuesPart.Trim() == "{}")
             {
                 return null; // Skip these structural empty additions
             }
             
-            expectedValue = "not set";
-            actualValue = valuesPart.Trim('"');
-            driftType = DriftType.Added;
+            expectedValue = valuesPart.Trim('"');
+            actualValue = "not set";
+            driftType = DriftType.Missing;
         }
         else if (symbol == '-')
         {
-            // Removed property - this means the property exists in Azure but will be deleted by template
-            // So it's an "extra" property in Azure that's not wanted by the template
-            // Skip empty or whitespace-only values that are likely structural Azure defaults
+            // Extra property - exists in Azure but not in template, will be removed by template
+            //
+            // Filter empty values: These are typically Azure platform defaults that create noise without value.
+            // Examples: properties.someField: "" or properties.tags: {}
+            // Rationale: Empty strings/objects rarely represent meaningful drift in practice.
+            // Users almost never care about drift from "" or {} to null/undefined.
+            //
+            // Future enhancement: If specific scenarios require seeing empty value drift,
+            // this could be made configurable via drift-ignore.json with an "allowEmptyValues" setting.
             if (string.IsNullOrWhiteSpace(valuesPart) || valuesPart.Trim() == "\"\"" || valuesPart.Trim() == "{}")
             {
                 return null; // Skip these structural empty removals
@@ -1589,7 +1602,7 @@ public class ComparisonService
             
             expectedValue = "not set";
             actualValue = valuesPart.Trim('"');
-            driftType = DriftType.Added;
+            driftType = DriftType.Extra;
         }
         else
         {
@@ -1745,8 +1758,8 @@ public class ComparisonService
                 action = "Modified in Azure";
             }
             
-            // Note: securityRules are already fully handled above with early returns (lines 1640-1686)
-            // No need for additional securityRules handling here
+            // Note: securityRules are already fully handled in the early checks above (before this point)
+            // They use early returns, so securityRules never reach this code path
             
             if (propertyPath.Contains("subnets"))
             {

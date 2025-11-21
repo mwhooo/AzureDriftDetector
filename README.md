@@ -17,7 +17,7 @@ The Azure Configuration Drift Detector helps maintain **IaC compliance** by iden
 
 ### 🔍 **Azure What-If Based Drift Detection**
 - **Azure-Native Comparison**: Uses Azure's `az deployment group what-if` for authoritative drift detection
-- **Reduced False Positives**: Minimizes false positives from ARM expression comparisons with intelligent ignore patterns
+- **Intelligent Noise Suppression**: Filters Azure platform behaviors with configurable ignore patterns
 - **Multi-Resource Support**: Works with any Azure resource type (VNets, Storage, Key Vault, App Services, NSGs, etc.)
 - **Property-Level Comparison**: Detects specific property changes with precise Expected vs Actual reporting
 - **Complex Object Handling**: Intelligent reporting for arrays and nested objects
@@ -342,7 +342,7 @@ resource networkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2023-11-0
 
 ## 🔇 Drift Ignore Configuration
 
-The drift detection system includes a comprehensive ignore mechanism to suppress false positives caused by Azure platform behaviors beyond your control.
+The drift detection system includes a comprehensive ignore mechanism to suppress noise caused by Azure platform behaviors beyond your control.
 
 ### Purpose
 The ignore functionality is specifically designed to filter out "noise" from:
@@ -372,7 +372,7 @@ Ignore patterns are defined in JSON configuration files (default: `drift-ignore.
 ```json
 {
   "ignorePatterns": {
-    "description": "Suppress Azure platform noise and false positives",
+    "description": "Suppress Azure platform noise",
     "resources": [
       {
         "resourceType": "Microsoft.ServiceBus/namespaces/queues",
@@ -457,7 +457,7 @@ az deployment group what-if --resource-group dev --template-file samples/main-te
 
 This provides:
 - ✅ **Azure-Native Comparison**: Uses Azure's deployment engine for authoritative drift detection
-- ✅ **Reduced False Positives**: ARM expression evaluation handled by Azure, with configurable ignore patterns
+- ✅ **Intelligent Noise Suppression**: Filters Azure platform behaviors with configurable ignore patterns
 - ✅ **Comprehensive Analysis**: Detects most configuration changes across resource types
 - ✅ **Clean Output**: Verbose what-if output suppressed, showing only formatted drift results
 
@@ -650,7 +650,7 @@ AzureDriftDetector/
 - **BicepService**: Integrates Azure what-if for authoritative drift detection, handles bicepparam files
 - **AzureCliService**: Queries live Azure resources and executes deployments with proper error handling
 - **ComparisonService**: Parses what-if text output into structured drift results with ignore filtering integration
-- **DriftIgnoreService**: Pattern matching engine for filtering Azure platform noise and false positives
+- **DriftIgnoreService**: Pattern matching engine for filtering Azure platform noise
 - **ReportingService**: Generates clean, actionable drift reports in multiple formats
 - **Bicep Modules**: Type-safe, reusable infrastructure components with exported configuration types
 
