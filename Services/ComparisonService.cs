@@ -1296,6 +1296,7 @@ public class ComparisonService
                 {
                     // Use formatted details instead of raw join
                     currentPropertyDrift.ActualValue = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
+                    UpdateExpectedValueForComplexObject(currentPropertyDrift);
                     currentPropertyDrift = null;
                     complexObjectDetails.Clear();
                 }
@@ -1385,20 +1386,7 @@ public class ComparisonService
                     {
                         var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
                         currentPropertyDrift.ActualValue = formattedDetails;
-                        
-                        // Update Expected value for clarity - especially for NSG rules and other complex objects
-                        if (currentPropertyDrift.PropertyPath.Contains("securityRules"))
-                        {
-                            currentPropertyDrift.ExpectedValue = "Rule should exist as configured in template";
-                        }
-                        else if (currentPropertyDrift.PropertyPath.Contains("subnets"))
-                        {
-                            currentPropertyDrift.ExpectedValue = "Subnet should exist as configured in template";
-                        }
-                        else
-                        {
-                            currentPropertyDrift.ExpectedValue = "Template configuration";
-                        }
+                        UpdateExpectedValueForComplexObject(currentPropertyDrift);
                         
                         currentPropertyDrift = null;
                         complexObjectDetails.Clear();
@@ -1438,20 +1426,7 @@ public class ComparisonService
             // Format the details with a helpful summary
             var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
             currentPropertyDrift.ActualValue = formattedDetails;
-            
-            // Update Expected value for clarity - especially for NSG rules and other complex objects
-            if (currentPropertyDrift.PropertyPath.Contains("securityRules"))
-            {
-                currentPropertyDrift.ExpectedValue = "Rule should exist as configured in template";
-            }
-            else if (currentPropertyDrift.PropertyPath.Contains("subnets"))
-            {
-                currentPropertyDrift.ExpectedValue = "Subnet should exist as configured in template";
-            }
-            else
-            {
-                currentPropertyDrift.ExpectedValue = "Template configuration";
-            }
+            UpdateExpectedValueForComplexObject(currentPropertyDrift);
         }
         
         // Add the last resource drift if still pending
@@ -1643,6 +1618,22 @@ public class ComparisonService
         return $"Configuration drift detected in {driftCount} resource(s) with {propertyDriftCount} property difference(s).";
     }
 
+    private void UpdateExpectedValueForComplexObject(PropertyDrift propertyDrift)
+    {
+        if (propertyDrift.PropertyPath.Contains("securityRules"))
+        {
+            propertyDrift.ExpectedValue = "Rule should exist as configured in template";
+        }
+        else if (propertyDrift.PropertyPath.Contains("subnets"))
+        {
+            propertyDrift.ExpectedValue = "Subnet should exist as configured in template";
+        }
+        else
+        {
+            propertyDrift.ExpectedValue = "Template configuration";
+        }
+    }
+
     private string FormatComplexObjectDetails(List<string> details, string propertyPath)
     {
         // Simple approach for NSG rules - always return clear message
@@ -1802,22 +1793,17 @@ public class ComparisonService
                 // For additions, show a clear summary instead of raw details
                 if (symbol == '+')
                 {
-                    // For NSG rules, provide a much clearer message
-                    if (propertyPath.Contains("securityRules"))
+                    // Extract the actual rule name from details if possible
+                    var nameMatch = System.Text.RegularExpressions.Regex.Match(string.Join("", meaningfulDetails), @"name:\s*""([^""]+)""");
+                    if (nameMatch.Success)
                     {
-                        // Extract the actual rule name from details if possible
-                        var nameMatch = System.Text.RegularExpressions.Regex.Match(string.Join("", meaningfulDetails), @"name:\s*""([^""]+)""");
-                        if (nameMatch.Success)
-                        {
-                            var ruleName = nameMatch.Groups[1].Value;
-                            return $"Security rule '{ruleName}' is missing from Azure (will be added by template)";
-                        }
-                        else
-                        {
-                            return "Security rule is missing from Azure (will be added by template)";
-                        }
+                        var ruleName = nameMatch.Groups[1].Value;
+                        return $"Security rule '{ruleName}' is missing from Azure (will be added by template)";
                     }
-                    return $"{action} {ruleIdentifier}";
+                    else
+                    {
+                        return "Security rule is missing from Azure (will be added by template)";
+                    }
                 }
                 
                 return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
