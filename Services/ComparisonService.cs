@@ -7,7 +7,6 @@ namespace AzureDriftDetector.Services;
 public class ComparisonService
 {
     private const string SKIP_MARKER = "skip";
-    private const string SKIP_MARKER = "skip";
     private readonly JsonDiffPatch _jsonDiffPatch;
     private readonly DriftIgnoreService _ignoreService;
 
