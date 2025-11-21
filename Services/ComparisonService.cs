@@ -1454,10 +1454,9 @@ public class ComparisonService
         {
             var resourcePath = parts[1];
             
-            // Skip malformed or invalid resource paths
+            // Skip malformed or invalid resource paths (silently - these are often complex expressions)
             if (string.IsNullOrWhiteSpace(resourcePath) || !resourcePath.Contains('/'))
             {
-                Console.WriteLine($"📝 Skipping malformed what-if line: {line.Trim()}");
                 return (SKIP_MARKER, SKIP_MARKER); // Use special marker to indicate skipping
             }
             
