@@ -16,8 +16,8 @@ The Azure Configuration Drift Detector helps maintain **IaC compliance** by iden
 ## ✨ Key Features
 
 ### 🔍 **Azure What-If Based Drift Detection**
-- **Authoritative Accuracy**: Uses Azure's native `az deployment group what-if` for 100% accurate drift detection
-- **Zero False Positives**: Eliminates false positives from ARM expression comparisons
+- **Azure-Native Comparison**: Uses Azure's `az deployment group what-if` for authoritative drift detection
+- **Reduced False Positives**: Minimizes false positives from ARM expression comparisons with intelligent ignore patterns
 - **Multi-Resource Support**: Works with any Azure resource type (VNets, Storage, Key Vault, App Services, NSGs, etc.)
 - **Property-Level Comparison**: Detects specific property changes with precise Expected vs Actual reporting
 - **Complex Object Handling**: Intelligent reporting for arrays and nested objects
@@ -456,9 +456,9 @@ az deployment group what-if --resource-group dev --template-file samples/main-te
 ```
 
 This provides:
-- ✅ **100% Accurate Results**: Uses Azure's deployment engine for comparison
-- ✅ **No False Positives**: ARM expression evaluation handled by Azure
-- ✅ **Comprehensive Analysis**: Detects all types of configuration changes
+- ✅ **Azure-Native Comparison**: Uses Azure's deployment engine for authoritative drift detection
+- ✅ **Reduced False Positives**: ARM expression evaluation handled by Azure, with configurable ignore patterns
+- ✅ **Comprehensive Analysis**: Detects most configuration changes across resource types
 - ✅ **Clean Output**: Verbose what-if output suppressed, showing only formatted drift results
 
 ### Type-Safe Bicep Modules
@@ -694,11 +694,11 @@ AzureDriftDetector/
 - ✅ **Any other Azure resource type** (generic support)
 
 ### Drift Detection Capabilities
-- **Azure What-If Based**: Uses Azure's native deployment engine for 100% accurate drift detection
+- **Azure What-If Based**: Uses Azure's native deployment engine for authoritative drift detection
 - **Property-level granularity**: Identifies specific changed properties
 - **Complex object support**: Handles arrays, nested objects with human-friendly messages
 - **Tag drift detection**: Detects added, removed, and modified tags
-- **Zero false positives**: Eliminates ARM expression comparison issues
+- **Configurable filtering**: Reduce noise with ignore patterns for Azure platform behaviors
 
 ### Performance Characteristics
 - **Fast what-if execution**: Leverages Azure's optimized what-if engine
@@ -719,14 +719,7 @@ This project demonstrates advanced techniques for:
 - `0`: No configuration drift detected
 - `1`: Configuration drift detected or error occurred
 
-Perfect for CI/CD pipelines and infrastructure validation workflows!
-
-## 📄 Exit Codes
-
-- `0`: No configuration drift detected
-- `1`: Configuration drift detected or error occurred
-
-Perfect for CI/CD pipelines and infrastructure validation workflows!
+Suitable for CI/CD pipelines and infrastructure validation workflows.
 
 ## 📝 Changelog
 

@@ -62,6 +62,7 @@ public class DriftIgnoreService
 
         var ignoredCount = 0;
         var totalDriftCount = 0;
+        var reportedIgnores = new HashSet<string>(); // Track what we've already reported
 
         foreach (var resourceDrift in originalResult.ResourceDrifts)
         {
@@ -78,7 +79,12 @@ public class DriftIgnoreService
                 else
                 {
                     ignoredCount++;
-                    Console.WriteLine($"🔇 Ignoring drift: {resourceDrift.ResourceType}/{resourceDrift.ResourceName} - {propertyDrift.PropertyPath}");
+                    // Deduplicate console output to avoid showing the same ignore message multiple times
+                    var ignoreKey = $"{resourceDrift.ResourceType}/{resourceDrift.ResourceName}:{propertyDrift.PropertyPath}";
+                    if (reportedIgnores.Add(ignoreKey))
+                    {
+                        Console.WriteLine($"🔇 Ignoring drift: {resourceDrift.ResourceType}/{resourceDrift.ResourceName} - {propertyDrift.PropertyPath}");
+                    }
                 }
             }
 

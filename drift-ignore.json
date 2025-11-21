@@ -41,15 +41,11 @@
         ]
       },
       {
-        "resourceType": "unknown",
-        "reason": "What-if parsing fallback: Handles edge cases where resource type extraction fails but drift analysis creates generic 'unknown' entries. This prevents false positives from parsing artifacts rather than legitimate resource drift.",
-        "conditions": {
-          "property": "name",
-          "operator": "equals",
-          "value": "unnamed"
-        },
+        "resourceType": "Microsoft.KeyVault/vaults",
+        "reason": "Azure automatically adds platform properties to Key Vaults",
         "ignoredProperties": [
-          "resource"
+          "properties.createMode",
+          "properties.networkAcls"
         ]
       }
     ],

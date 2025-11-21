@@ -6,6 +6,7 @@ namespace AzureDriftDetector.Services;
 
 public class ComparisonService
 {
+    private const string SKIP_MARKER = "skip";
     private readonly JsonDiffPatch _jsonDiffPatch;
     private readonly DriftIgnoreService _ignoreService;
 
@@ -1294,7 +1295,9 @@ public class ComparisonService
                 // Save previous property drift with details if exists
                 if (currentPropertyDrift != null && complexObjectDetails.Count > 0)
                 {
-                    currentPropertyDrift.ActualValue = string.Join("\n", complexObjectDetails);
+                    // Use formatted details instead of raw join
+                    currentPropertyDrift.ActualValue = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
+                    UpdateExpectedValueForComplexObject(currentPropertyDrift);
                     currentPropertyDrift = null;
                     complexObjectDetails.Clear();
                 }
@@ -1307,6 +1310,12 @@ public class ComparisonService
                 
                 // Extract resource info
                 var resourceInfo = ExtractResourceInfoFromWhatIfLine(trimmedLine);
+                
+                // Skip resources that couldn't be parsed properly
+                if (resourceInfo.type == SKIP_MARKER && resourceInfo.name == SKIP_MARKER)
+                {
+                    continue;
+                }
                 
                 if (firstChar == '~')
                 {
@@ -1378,6 +1387,8 @@ public class ComparisonService
                     {
                         var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
                         currentPropertyDrift.ActualValue = formattedDetails;
+                        UpdateExpectedValueForComplexObject(currentPropertyDrift);
+                        
                         currentPropertyDrift = null;
                         complexObjectDetails.Clear();
                     }
@@ -1388,17 +1399,12 @@ public class ComparisonService
                         currentResourceDrift.PropertyDrifts.Add(propertyDrift);
                         
                         // Check if this is a complex object/array that might have details in following lines
-                        if (propertyDrift.ActualValue?.ToString() == "differs in Azure (complex object/array)")
+                        var actualValue = propertyDrift.ActualValue?.ToString() ?? "";
+                        if (actualValue == "differs in Azure (complex object/array)" || 
+                            actualValue == "configuration differs (details will be analyzed)")
                         {
                             currentPropertyDrift = propertyDrift;
                             complexObjectDetails.Clear();
-                            
-                            // Update expected value to be more descriptive for arrays
-                            if (propertyDrift.PropertyPath.Contains("securityRules") || 
-                                propertyDrift.PropertyPath.Contains("Rules"))
-                            {
-                                propertyDrift.ExpectedValue = "Template configuration";
-                            }
                         }
                     }
                 }
@@ -1421,6 +1427,7 @@ public class ComparisonService
             // Format the details with a helpful summary
             var formattedDetails = FormatComplexObjectDetails(complexObjectDetails, currentPropertyDrift.PropertyPath);
             currentPropertyDrift.ActualValue = formattedDetails;
+            UpdateExpectedValueForComplexObject(currentPropertyDrift);
         }
         
         // Add the last resource drift if still pending
@@ -1446,6 +1453,13 @@ public class ComparisonService
         if (parts.Length >= 2)
         {
             var resourcePath = parts[1];
+            
+            // Skip malformed or invalid resource paths (silently - these are often complex expressions)
+            if (string.IsNullOrWhiteSpace(resourcePath) || !resourcePath.Contains('/'))
+            {
+                return (SKIP_MARKER, SKIP_MARKER); // Use special marker to indicate skipping
+            }
+            
             var pathParts = resourcePath.Split('/');
             
             if (pathParts.Length >= 3)
@@ -1467,12 +1481,22 @@ public class ComparisonService
                     // Regular resource
                     var resourceType = $"{pathParts[0]}/{pathParts[1]}";
                     var resourceName = pathParts[2];
+                    
+                    // Validate that we have meaningful values
+                    if (string.IsNullOrWhiteSpace(resourceName))
+                    {
+                        Console.WriteLine($"📝 Skipping what-if line with empty resource name: {line.Trim()}");
+                        return (SKIP_MARKER, SKIP_MARKER);
+                    }
+                    
                     return (resourceType, resourceName);
                 }
             }
         }
         
-        return ("unknown", "unknown");
+        // Log the problematic line for debugging
+        Console.WriteLine($"📝 Could not parse what-if line, skipping: {line.Trim()}");
+        return (SKIP_MARKER, SKIP_MARKER); // Use special marker instead of unknown
     }
 
     private PropertyDrift? ExtractPropertyDriftFromWhatIfLine(string line)
@@ -1530,7 +1554,7 @@ public class ComparisonService
                 if (valuesPart.StartsWith("[") || valuesPart.StartsWith("{"))
                 {
                     expectedValue = "configured in template";
-                    actualValue = "differs in Azure (complex object/array)";
+                    actualValue = "configuration differs (details will be analyzed)";
                 }
                 else
                 {
@@ -1543,6 +1567,12 @@ public class ComparisonService
         else if (symbol == '+')
         {
             // Added property
+            // Skip empty or whitespace-only values that are likely structural Azure defaults
+            if (string.IsNullOrWhiteSpace(valuesPart) || valuesPart.Trim() == "\"\"" || valuesPart.Trim() == "{}")
+            {
+                return null; // Skip these structural empty additions
+            }
+            
             expectedValue = "not set";
             actualValue = valuesPart.Trim('"');
             driftType = DriftType.Added;
@@ -1551,6 +1581,12 @@ public class ComparisonService
         {
             // Removed property - this means the property exists in Azure but will be deleted by template
             // So it's an "extra" property in Azure that's not wanted by the template
+            // Skip empty or whitespace-only values that are likely structural Azure defaults
+            if (string.IsNullOrWhiteSpace(valuesPart) || valuesPart.Trim() == "\"\"" || valuesPart.Trim() == "{}")
+            {
+                return null; // Skip these structural empty removals
+            }
+            
             expectedValue = "not set";
             actualValue = valuesPart.Trim('"');
             driftType = DriftType.Added;
@@ -1582,8 +1618,85 @@ public class ComparisonService
         return $"Configuration drift detected in {driftCount} resource(s) with {propertyDriftCount} property difference(s).";
     }
 
+    /// <summary>
+    /// Updates the expected value description for complex object drift based on the property path.
+    /// Provides user-friendly descriptions for security rules, subnets, and other complex objects.
+    /// </summary>
+    /// <param name="propertyDrift">The property drift object to update.</param>
+    private void UpdateExpectedValueForComplexObject(PropertyDrift propertyDrift)
+    {
+        if (propertyDrift.PropertyPath.Contains("securityRules", StringComparison.OrdinalIgnoreCase))
+        {
+            propertyDrift.ExpectedValue = "Rule should exist as configured in template";
+        }
+        else if (propertyDrift.PropertyPath.Contains("subnets", StringComparison.OrdinalIgnoreCase))
+        {
+            propertyDrift.ExpectedValue = "Subnet should exist as configured in template";
+        }
+        else
+        {
+            propertyDrift.ExpectedValue = "Template configuration";
+        }
+    }
+
+    /// <summary>
+    /// Formats complex object details from Azure what-if output into user-friendly messages.
+    /// Handles special formatting for NSG security rules, subnets, and other resource types.
+    /// </summary>
+    /// <param name="details">Raw detail lines from what-if output, representing differences for a complex property.</param>
+    /// <param name="propertyPath">The property path being analyzed (e.g., "properties.securityRules", "properties.subnets").</param>
+    /// <returns>A formatted, user-friendly description of the configuration drift for the complex object.</returns>
     private string FormatComplexObjectDetails(List<string> details, string propertyPath)
     {
+        // Simple approach for NSG rules - always return clear message
+        if (propertyPath.Contains("securityRules", StringComparison.OrdinalIgnoreCase))
+        {
+            // Try to extract ALL rule names from details
+            var allText = string.Join("\n", details);
+            var nameMatches = System.Text.RegularExpressions.Regex.Matches(allText, @"name:\s*""([^""]+)""");
+            
+            var ruleNames = nameMatches.Cast<System.Text.RegularExpressions.Match>()
+                                       .Select(m => m.Groups[1].Value)
+                                       .Distinct()
+                                       .ToList();
+            
+            // Check if this is an addition (missing rule) - check if any line starts with "+"
+            if (details.Any(d => d.Trim().StartsWith("+")))
+            {
+                if (ruleNames.Count > 1)
+                {
+                    return $"{ruleNames.Count} security rules are missing from Azure: {string.Join(", ", ruleNames.Select(n => $"'{n}'"))}";
+                }
+                else if (ruleNames.Count == 1)
+                {
+                    return $"Security rule '{ruleNames[0]}' is missing from Azure";
+                }
+                return "Security rule(s) are missing from Azure";
+            }
+            // Check if this is a removal (extra rule) - check if any line starts with "-"
+            else if (details.Any(d => d.Trim().StartsWith("-")))
+            {
+                if (ruleNames.Count > 1)
+                {
+                    return $"{ruleNames.Count} extra security rules exist in Azure (not in template): {string.Join(", ", ruleNames.Select(n => $"'{n}'"))}";
+                }
+                else if (ruleNames.Count == 1)
+                {
+                    return $"Extra security rule '{ruleNames[0]}' exists in Azure (not in template)";
+                }
+                return "Extra security rule(s) exist in Azure (not in template)";
+            }
+            // Modified rule
+            else
+            {
+                if (ruleNames.Count > 0)
+                {
+                    return $"Security rule '{ruleNames[0]}' configuration differs from template";
+                }
+                return "Security rule configuration differs from template";
+            }
+        }
+        
         if (details.Count == 0) return "differs in Azure (complex object/array)";
         
         // Filter out structural characters like ]
@@ -1593,6 +1706,22 @@ public class ComparisonService
         
         // Check if this is an array change with items being added/removed
         var firstLine = meaningfulDetails.FirstOrDefault()?.Trim() ?? "";
+        
+        // Simple approach: Check what type of change this is
+        if (firstLine.StartsWith("+"))
+        {
+            return "Missing from Azure (will be added by template)";
+        }
+        
+        if (firstLine.StartsWith("-"))
+        {
+            return "Extra configuration exists in Azure (not in template)";
+        }
+        
+        if (firstLine.StartsWith("~"))
+        {
+            return "Configuration differs from template";
+        }
         
         // Check for array index patterns like "+ 0:", "- 1:", "~ 2:", etc.
         var indexPattern = System.Text.RegularExpressions.Regex.Match(firstLine, @"^([+\-~])\s*(\d+):\s*$");
@@ -1605,83 +1734,21 @@ public class ComparisonService
             
             if (symbol == '+')
             {
-                action = "Adding";
+                action = "Missing in Azure (will be added)";
             }
             else if (symbol == '-')
             {
-                action = "Removing";
+                action = "Extra in Azure (will be removed)";
             }
             else // symbol == '~'
             {
-                action = "Modifying";
+                action = "Modified in Azure";
             }
             
-            if (propertyPath.Contains("securityRules"))
-            {
-                var ruleIdentifier = $"security rule #{index}";
-                
-                // Try to extract rule name from the details
-                var namePattern = meaningfulDetails.FirstOrDefault(d => d.Contains("name:"));
-                if (namePattern != null)
-                {
-                    var parts = namePattern.Split('\"');
-                    if (parts.Length >= 2)
-                    {
-                        ruleIdentifier = $"security rule '{parts[1]}'";
-                    }
-                }
-                
-                // For modifications, extract what changed
-                if (symbol == '~')
-                {
-                    // Look for property changes (lines with =>)
-                    var propertyChanges = meaningfulDetails.Skip(1).Where(d => d.Contains("=>")).ToList();
-                    
-                    if (propertyChanges.Count == 1)
-                    {
-                        // Single property change
-                        var change = propertyChanges[0].Trim();
-                        if (change.StartsWith("~"))
-                        {
-                            change = change.Substring(1).Trim();
-                        }
-                        
-                        var arrowIndex = change.IndexOf("=>");
-                        if (arrowIndex > 0)
-                        {
-                            var colonIndex = change.IndexOf(":");
-                            if (colonIndex > 0 && colonIndex < arrowIndex)
-                            {
-                                var propName = change.Substring(0, colonIndex).Trim();
-                                var oldValue = change.Substring(colonIndex + 1, arrowIndex - colonIndex - 1).Trim();
-                                var newValue = change.Substring(arrowIndex + 2).Trim();
-                                return $"{action} {ruleIdentifier}: {propName} changed from {oldValue} to {newValue}";
-                            }
-                        }
-                    }
-                    else if (propertyChanges.Count > 1)
-                    {
-                        // Multiple properties changed
-                        var changeDescriptions = new List<string> { $"{action} {ruleIdentifier}:" };
-                        foreach (var change in propertyChanges)
-                        {
-                            var cleanChange = change.Trim();
-                            if (cleanChange.StartsWith("~")) cleanChange = cleanChange.Substring(1).Trim();
-                            changeDescriptions.Add($"  • {cleanChange}");
-                        }
-                        return string.Join("\n", changeDescriptions);
-                    }
-                }
-                
-                // For additions, show all details
-                if (symbol == '+')
-                {
-                    return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1).Select(d => $"  {d.Trim()}"));
-                }
-                
-                return $"{action} {ruleIdentifier}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
-            }
-            else if (propertyPath.Contains("subnets"))
+            // Note: securityRules are already fully handled above with early returns (lines 1640-1686)
+            // No need for additional securityRules handling here
+            
+            if (propertyPath.Contains("subnets"))
             {
                 return $"{action} subnet #{index}:\n" + string.Join("\n", meaningfulDetails.Skip(1));
             }
