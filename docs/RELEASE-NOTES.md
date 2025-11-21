@@ -1,5 +1,22 @@
 # Release Notes
 
+## Version 3.6.0 - Duplicate Ignore Message Fix (2025-11-21)
+
+### 🎯 Summary
+Bug fix release that eliminates duplicate ignore messages in console output, improving clarity and user experience.
+
+### 🐛 Bug Fixes
+- **Deduplicated Ignore Messages**: Fixed issue where identical ignore messages appeared multiple times in console output
+- **HashSet Tracking**: Implemented deduplication logic using HashSet to track already-reported ignores
+- **Cleaner Output**: Each ignored drift property now reported only once, reducing noise and confusion
+
+### 🔧 Technical Details
+- Added `reportedIgnores` HashSet in `DriftIgnoreService.cs` to track unique ignore keys
+- Ignore key format: `{resourceType}/{resourceName}:{propertyPath}` ensures proper deduplication
+- No functional changes to drift detection logic, only improved console reporting
+
+---
+
 ## Version 3.3.0 - External Bicep Modules & Azure Verified Modules (AVM) Support (2025-11-20)
 
 ### 🎯 Summary
