@@ -72,7 +72,7 @@ jobs:
 
     - name: Create Issue on Drift
       if: steps.check.outputs.drift == 'true'
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const { createDriftIssue } = require('./.github/scripts/create-drift-issue.js');
