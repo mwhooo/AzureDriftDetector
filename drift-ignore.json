@@ -34,10 +34,39 @@
         ]
       },
       {
+        "resourceType": "Microsoft.Storage/storageAccounts/fileServices",
+        "reason": "AVM explicitly sets enabledProtocols to SMB which is already the Azure default",
+        "ignoredProperties": [
+          "properties.enabledProtocols"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.Storage/storageAccounts/fileServices/shares",
+        "reason": "AVM explicitly sets enabledProtocols and accessTier which Azure may resolve differently",
+        "ignoredProperties": [
+          "properties.enabledProtocols",
+          "properties.accessTier"
+        ]
+      },
+      {
         "resourceType": "Microsoft.Network/publicIPAddresses",
         "reason": "Azure automatically adds DDoS protection settings to public IPs",
         "ignoredProperties": [
           "properties.ddosSettings"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.Network/virtualNetworks",
+        "reason": "Azure sets private endpoint policies when private endpoints are created",
+        "ignoredProperties": [
+          "properties.privateEndpointVNetPolicies"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.Network/virtualNetworks/subnets",
+        "reason": "Azure sets privateEndpointNetworkPolicies to Disabled when private endpoints are created, but AVM defaults to Enabled",
+        "ignoredProperties": [
+          "properties.privateEndpointNetworkPolicies"
         ]
       },
       {
@@ -46,6 +75,30 @@
         "ignoredProperties": [
           "properties.createMode",
           "properties.networkAcls"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.ManagedIdentity/userAssignedIdentities",
+        "reason": "Azure sets isolationScope on managed identities automatically",
+        "ignoredProperties": [
+          "properties",
+          "properties.isolationScope"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.DBforPostgreSQL/flexibleServers",
+        "reason": "Azure sets default values for PostgreSQL that are not in template",
+        "ignoredProperties": [
+          "properties.authConfig.activeDirectoryAuth",
+          "properties.storage.iops"
+        ]
+      },
+      {
+        "resourceType": "Microsoft.App/containerApps",
+        "reason": "Azure sets container app defaults and resolves ARM template functions to actual values",
+        "ignoredProperties": [
+          "properties.configuration.maxInactiveRevisions",
+          "properties.template.volumes.0.storageType"
         ]
       }
     ],
@@ -61,6 +114,10 @@
       {
         "propertyPattern": "properties.updatedAt", 
         "reason": "Azure managed timestamp property"
+      },
+      {
+        "propertyPattern": "properties.principalId",
+        "reason": "ARM resolves principalId references to actual GUIDs - not real drift"
       }
     ]
   }

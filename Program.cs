@@ -52,14 +52,22 @@ class Program
             description: "Path to drift ignore configuration file (default: drift-ignore.json)");
         ignoreConfigOption.IsRequired = false;
 
+        // Show filtered drifts option for transparency/auditing
+        var showFilteredOption = new Option<bool>(
+            name: "--show-filtered",
+            description: "Show details of filtered/ignored drifts for auditing purposes");
+        showFilteredOption.IsRequired = false;
+        showFilteredOption.SetDefaultValue(false);
+
         rootCommand.Add(bicepFileOption);
         rootCommand.Add(resourceGroupOption);
         rootCommand.Add(outputFormatOption);
         rootCommand.Add(simpleOutputOption);
         rootCommand.Add(autofixOption);
         rootCommand.Add(ignoreConfigOption);
+        rootCommand.Add(showFilteredOption);
 
-        rootCommand.SetHandler(async (bicepFile, resourceGroup, outputFormat, simpleOutput, autofix, ignoreConfig) =>
+        rootCommand.SetHandler(async (bicepFile, resourceGroup, outputFormat, simpleOutput, autofix, ignoreConfig, showFiltered) =>
         {
             try
             {
@@ -97,7 +105,14 @@ class Program
                 var ignoreConfigPath = ignoreConfig?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "drift-ignore.json");
                 var ignoreExists = File.Exists(ignoreConfigPath);
                 Console.WriteLine($"{(simpleOutput ? "[IGNORE]" : "🔇")} Ignore Config: {Path.GetFileName(ignoreConfigPath)} {(ignoreExists ? "(found)" : "(not found)")}");
+                if (showFiltered)
+                {
+                    Console.WriteLine($"{(simpleOutput ? "[AUDIT]" : "🔍")} Show Filtered: ENABLED (audit mode)");
+                }
                 Console.WriteLine();
+
+                // Set show-filtered preference globally
+                Environment.SetEnvironmentVariable("SHOW_FILTERED", showFiltered.ToString());
 
                 var detector = new DriftDetector(ignoreConfig?.FullName);
                 var result = await detector.DetectDriftAsync(bicepFile, resourceGroup, outputFormat);
@@ -135,6 +150,11 @@ class Program
                     Environment.Exit(0);
                 }
             }
+            catch (InvalidOperationException)
+            {
+                // Validation errors already have detailed output from BicepService
+                Environment.Exit(1);
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"{(simpleOutput ? "[FATAL]" : "❌")} Fatal error: {ex.Message}");
@@ -145,7 +165,7 @@ class Program
                 Console.WriteLine($"{(simpleOutput ? "[TIP]" : "💡")} Ensure Azure CLI is installed and you're logged in with 'az login'");
                 Environment.Exit(1);
             }
-        }, bicepFileOption, resourceGroupOption, outputFormatOption, simpleOutputOption, autofixOption, ignoreConfigOption);
+        }, bicepFileOption, resourceGroupOption, outputFormatOption, simpleOutputOption, autofixOption, ignoreConfigOption, showFilteredOption);
 
         return await rootCommand.InvokeAsync(args);
     }

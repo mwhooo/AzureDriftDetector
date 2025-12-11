@@ -201,10 +201,16 @@ public class BicepService
 
             if (process.ExitCode != 0)
             {
-                Console.WriteLine($"⚠️  What-if command failed, falling back to build approach");
+                Console.WriteLine($"❌ What-if command failed");
                 Console.WriteLine($"   Error: {error}");
+                Console.WriteLine();
+                Console.WriteLine("💡 To fix this issue:");
+                Console.WriteLine("   - Ensure all required parameters are provided in a .bicepparam file");
+                Console.WriteLine("   - Or use environment variables / Key Vault references for secrets");
+                Console.WriteLine("   - Check that you have the correct Azure subscription selected (az account show)");
+                Console.WriteLine();
                 
-                return await FallbackToBuildAsync(bicepFilePath);
+                throw new InvalidOperationException($"What-if deployment validation failed. The template has errors or missing parameters that must be resolved before drift detection can proceed. Error: {error}");
             }
 
             Console.WriteLine($"✅ What-if analysis completed successfully");
@@ -212,12 +218,15 @@ public class BicepService
             // Parse the what-if text output
             return ParseWhatIfTextOutput(output, templateFile, bicepFilePath);
         }
+        catch (InvalidOperationException)
+        {
+            // Re-throw our own validation errors
+            throw;
+        }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠️  Error running what-if: {ex.Message}");
-            Console.WriteLine($"   Falling back to build approach");
-            
-            return await FallbackToBuildAsync(bicepFilePath);
+            Console.WriteLine($"❌ Error running what-if: {ex.Message}");
+            throw new InvalidOperationException($"Failed to run what-if analysis. Ensure Azure CLI is installed and you're logged in. Error: {ex.Message}", ex);
         }
     }
 
@@ -311,8 +320,16 @@ public class BicepService
                 var action = parts[1];
                 var resourceType = parts.Length > 2 ? parts[2] : "";
                 
-                // Validate that we have a proper resource type (contains '/')
-                if (!resourceType.Contains('/')) return null;
+                // Validate that we have a proper resource type:
+                // - Must contain '/' (e.g., Microsoft.Storage/storageAccounts)
+                // - Must start with 'Microsoft.' (Azure resource provider)
+                // - Must not be a quoted value (property detail lines)
+                if (!resourceType.Contains('/') || 
+                    !resourceType.StartsWith("Microsoft.", StringComparison.OrdinalIgnoreCase) ||
+                    resourceType.StartsWith("\""))
+                {
+                    return null;
+                }
                 
                 // Determine the action based on symbol and action word
                 string whatIfAction = action.ToLowerInvariant() switch
@@ -348,8 +365,7 @@ public class BicepService
                 }
                 else
                 {
-                    // For resources without names (likely parsing artifacts), skip them
-                    Console.WriteLine($"📝 Skipping what-if line without resource name: {line.Trim()}");
+                    // For resources without names (likely parsing artifacts), silently skip them
                     return null;
                 }
                 
