@@ -120,7 +120,7 @@ public class ReportingService
                     var parsed = JToken.Parse(str);
                     return parsed.ToString(Formatting.Indented);
                 }
-                catch
+                catch (JsonReaderException)
                 {
                     // Not valid JSON, return as-is
                 }
@@ -129,7 +129,7 @@ public class ReportingService
             // Truncate long strings
             if (str.Length > 80)
             {
-                return $"\"{str.Substring(0, 77)}...\"";
+                return $"\"{str[..77]}...\"";
             }
             
             return str == "not set" ? "not set" : $"\"{str}\"";

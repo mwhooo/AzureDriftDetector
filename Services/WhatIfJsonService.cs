@@ -457,6 +457,8 @@ public class WhatIfJsonService
         throw new InvalidOperationException($"Could not find 'using' statement in {bicepparamFilePath}");
     }
 
+    private const int AzCliVersionCheckTimeoutMs = 5000;
+
     private string GetAzureCLIPath()
     {
         // Try common Azure CLI paths
@@ -472,7 +474,7 @@ public class WhatIfJsonService
         {
             try
             {
-                var process = Process.Start(new ProcessStartInfo
+                using var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = path,
                     Arguments = "--version",
@@ -481,15 +483,19 @@ public class WhatIfJsonService
                     UseShellExecute = false,
                     CreateNoWindow = true
                 });
-                process?.WaitForExit(5000);
+                process?.WaitForExit(AzCliVersionCheckTimeoutMs);
                 if (process?.ExitCode == 0)
                 {
                     return path;
                 }
             }
-            catch (Exception)
+            catch (System.ComponentModel.Win32Exception)
             {
                 // Expected when az CLI is not found at this path; try next
+            }
+            catch (InvalidOperationException)
+            {
+                // Process already exited or other state issue; try next
             }
         }
 

@@ -93,10 +93,12 @@ public class DriftIgnoreService
                         if (showFiltered)
                         {
                             // Detailed output for audit mode
+                            var expectedStr = propertyDrift.ExpectedValue?.ToString() ?? "";
+                            var actualStr = propertyDrift.ActualValue?.ToString() ?? "";
                             Console.WriteLine($"🔇 Ignoring drift: {resourceDrift.ResourceType}/{resourceDrift.ResourceName} - {propertyDrift.PropertyPath}");
                             Console.WriteLine($"   Reason: {ignoreReason}");
-                            Console.WriteLine($"   Expected: {propertyDrift.ExpectedValue?.ToString()?.Substring(0, Math.Min(80, propertyDrift.ExpectedValue?.ToString()?.Length ?? 0))}...");
-                            Console.WriteLine($"   Actual: {propertyDrift.ActualValue?.ToString()?.Substring(0, Math.Min(80, propertyDrift.ActualValue?.ToString()?.Length ?? 0))}...");
+                            Console.WriteLine($"   Expected: {expectedStr[..Math.Min(80, expectedStr.Length)]}...");
+                            Console.WriteLine($"   Actual: {actualStr[..Math.Min(80, actualStr.Length)]}...");
                         }
                         else
                         {
@@ -150,30 +152,18 @@ public class DriftIgnoreService
         var showFiltered = Environment.GetEnvironmentVariable("SHOW_FILTERED") == "True";
         if (!showFiltered) return;
 
-        var unusedResourceRules = new List<string>();
-        var unusedGlobalPatterns = new List<string>();
+        // Check for unused resource rules using LINQ
+        var unusedResourceRules = _ignoreConfig.IgnorePatterns.Resources
+            .SelectMany(r => r.IgnoredProperties
+                .Where(p => !_usedResourceRules.Contains($"{r.ResourceType}:{p}"))
+                .Select(p => $"{r.ResourceType} - {p}"))
+            .ToList();
 
-        // Check for unused resource rules
-        foreach (var resourceRule in _ignoreConfig.IgnorePatterns.Resources)
-        {
-            foreach (var property in resourceRule.IgnoredProperties)
-            {
-                var ruleKey = $"{resourceRule.ResourceType}:{property}";
-                if (!_usedResourceRules.Contains(ruleKey))
-                {
-                    unusedResourceRules.Add($"{resourceRule.ResourceType} - {property}");
-                }
-            }
-        }
-
-        // Check for unused global patterns
-        foreach (var globalPattern in _ignoreConfig.IgnorePatterns.GlobalPatterns)
-        {
-            if (!_usedGlobalPatterns.Contains(globalPattern.PropertyPattern))
-            {
-                unusedGlobalPatterns.Add(globalPattern.PropertyPattern);
-            }
-        }
+        // Check for unused global patterns using LINQ
+        var unusedGlobalPatterns = _ignoreConfig.IgnorePatterns.GlobalPatterns
+            .Where(gp => !_usedGlobalPatterns.Contains(gp.PropertyPattern))
+            .Select(gp => gp.PropertyPattern)
+            .ToList();
 
         if (unusedResourceRules.Count > 0 || unusedGlobalPatterns.Count > 0)
         {
