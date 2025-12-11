@@ -609,7 +609,8 @@ Options:
   --output <format>          Output format: Console (default), Json, Html, Markdown
   --autofix                  Automatically deploy template to fix detected drift
   --ignore-config <path>     Path to drift ignore configuration file (default: drift-ignore.json)
-  --simple-output           Use simple ASCII characters for CI/CD compatibility
+  --show-filtered            Show detailed reasons for filtered drift (audit mode)
+  --simple-output            Use simple ASCII characters for CI/CD compatibility
   --help                     Show help information
 ```
 
@@ -624,7 +625,8 @@ AzureDriftDetector/
 ├── Services/
 │   ├── AzureCliService.cs         # Azure CLI integration & deployments
 │   ├── BicepService.cs            # Bicep compilation & what-if integration
-│   ├── ComparisonService.cs       # What-if output parsing & drift analysis with filtering
+│   ├── WhatIfJsonService.cs       # JSON-based what-if parsing (reliable)
+│   ├── ComparisonService.cs       # Legacy text-based parsing (deprecated)
 │   ├── DriftIgnoreService.cs      # Ignore pattern matching and drift filtering
 │   └── ReportingService.cs        # Multi-format output generation
 ├── bicep-modules/                 # Modular Bicep templates
@@ -649,7 +651,8 @@ AzureDriftDetector/
 
 - **BicepService**: Integrates Azure what-if for authoritative drift detection, handles bicepparam files
 - **AzureCliService**: Queries live Azure resources and executes deployments with proper error handling
-- **ComparisonService**: Parses what-if text output into structured drift results with ignore filtering integration
+- **WhatIfJsonService**: Parses what-if JSON output for reliable drift detection with ARM expression filtering
+- **ComparisonService**: Legacy text-based parsing (deprecated, kept for reference)
 - **DriftIgnoreService**: Pattern matching engine for filtering Azure platform noise
 - **ReportingService**: Generates clean, actionable drift reports in multiple formats
 - **Bicep Modules**: Type-safe, reusable infrastructure components with exported configuration types

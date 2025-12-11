@@ -1,4 +1,4 @@
-﻿using AzureDriftDetector.Core;
+using AzureDriftDetector.Core;
 using AzureDriftDetector.Models;
 using System.CommandLine;
 
@@ -92,7 +92,7 @@ class Program
                     return;
                 }
 
-                Console.WriteLine($"{(simpleOutput ? "[INFO]" : "🔍")} Azure Configuration Drift Detector v3.6.0");
+                Console.WriteLine($"{(simpleOutput ? "[INFO]" : "🔍")} Azure Configuration Drift Detector v3.7.0");
                 Console.WriteLine($"{(simpleOutput ? "[FILE]" : "📄")} Bicep Template: {bicepFile.Name}");
                 Console.WriteLine($"{(simpleOutput ? "[RG]" : "🏗️")}  Resource Group: {resourceGroup}");
                 Console.WriteLine($"{(simpleOutput ? "[OUTPUT]" : "📊")} Output Format: {outputFormat}");
