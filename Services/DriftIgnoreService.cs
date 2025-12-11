@@ -288,7 +288,7 @@ public class DriftIgnoreService
     /// What-if shows unresolved ARM expressions like "[parameters('foo')]" or "[reference(...)]"
     /// while Azure has the actual resolved values. These are not real drifts.
     /// </summary>
-    private bool IsArmExpressionComparison(string expectedValue, string actualValue)
+    private bool IsArmExpressionComparison(string? expectedValue, string? actualValue)
     {
         if (string.IsNullOrEmpty(expectedValue) || string.IsNullOrEmpty(actualValue))
         {

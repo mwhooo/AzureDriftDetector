@@ -81,7 +81,6 @@ public class ReportingService
     private void WriteAlignedValue(string label, object? value)
     {
         const string indent = "      ";  // 6 spaces for base alignment
-        const int labelWidth = 10;       // "Expected: " and "Actual:   " aligned
         
         var formattedLabel = label == "Expected" ? "Expected:" : "Actual:  ";
         var formattedValue = FormatValueForConsole(value);
