@@ -89,13 +89,9 @@ public class ReportingService
         {
             // Multi-line value - put on next line with proper indentation
             Console.WriteLine($"{indent}{formattedLabel}");
-            var lines = formattedValue.Split('\n');
-            foreach (var line in lines)
+            foreach (var line in formattedValue.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l)))
             {
-                if (!string.IsNullOrWhiteSpace(line))
-                {
-                    Console.WriteLine($"{indent}  {line.TrimEnd()}");
-                }
+                Console.WriteLine($"{indent}  {line.TrimEnd()}");
             }
         }
         else

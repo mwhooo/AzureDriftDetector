@@ -97,8 +97,10 @@ public class DriftIgnoreService
                             var actualStr = propertyDrift.ActualValue?.ToString() ?? "";
                             Console.WriteLine($"🔇 Ignoring drift: {resourceDrift.ResourceType}/{resourceDrift.ResourceName} - {propertyDrift.PropertyPath}");
                             Console.WriteLine($"   Reason: {ignoreReason}");
-                            Console.WriteLine($"   Expected: {expectedStr[..Math.Min(80, expectedStr.Length)]}...");
-                            Console.WriteLine($"   Actual: {actualStr[..Math.Min(80, actualStr.Length)]}...");
+                            var expectedTruncated = expectedStr.Length > 80 ? expectedStr[..80] + "..." : expectedStr;
+                            var actualTruncated = actualStr.Length > 80 ? actualStr[..80] + "..." : actualStr;
+                            Console.WriteLine($"   Expected: {expectedTruncated}");
+                            Console.WriteLine($"   Actual: {actualTruncated}");
                         }
                         else
                         {

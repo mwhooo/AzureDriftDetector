@@ -442,11 +442,20 @@ public class WhatIfJsonService
                     var directory = Path.GetDirectoryName(bicepparamFilePath) ?? "";
                     var fullPath = Path.GetFullPath(Path.Combine(directory, referencedFile));
                     
-                    // Security: Validate the resolved path is within the expected directory
+                    // Security: Validate the resolved path doesn't escape the base directory
                     var baseDirectory = Path.GetFullPath(directory);
-                    if (!fullPath.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase))
+                    var relativePath = Path.GetRelativePath(baseDirectory, fullPath);
+                    if (relativePath.StartsWith("..") || Path.IsPathRooted(relativePath))
                     {
                         throw new InvalidOperationException($"Referenced file path '{referencedFile}' resolves outside the base directory.");
+                    }
+                    if (!File.Exists(fullPath))
+                    {
+                        throw new FileNotFoundException($"Referenced file '{referencedFile}' does not exist at resolved path '{fullPath}'.");
+                    }
+                    if ((File.GetAttributes(fullPath) & FileAttributes.Directory) == FileAttributes.Directory)
+                    {
+                        throw new InvalidOperationException($"Referenced path '{fullPath}' is a directory, not a file.");
                     }
                     
                     return fullPath;
@@ -483,8 +492,12 @@ public class WhatIfJsonService
                     UseShellExecute = false,
                     CreateNoWindow = true
                 });
-                process?.WaitForExit(AzCliVersionCheckTimeoutMs);
-                if (process?.ExitCode == 0)
+                if (process == null)
+                {
+                    continue;
+                }
+                process.WaitForExit(AzCliVersionCheckTimeoutMs);
+                if (process.ExitCode == 0)
                 {
                     return path;
                 }
