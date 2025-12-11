@@ -1,104 +1,36 @@
 {
   "ignorePatterns": {
-    "description": "Configuration to suppress known false positive drift detections",
+    "description": "Ignore patterns for Azure platform behaviors that cannot be controlled via templates",
     "resources": [
       {
         "resourceType": "Microsoft.ServiceBus/namespaces/queues",
-        "reason": "Azure Service Bus Basic tier retains premium properties after deployment",
+        "reason": "Azure Service Bus sets default values that cannot be nullified in template",
         "ignoredProperties": [
           "properties.autoDeleteOnIdle",
-          "properties.defaultMessageTimeToLive", 
+          "properties.defaultMessageTimeToLive",
           "properties.duplicateDetectionHistoryTimeWindow",
           "properties.maxMessageSizeInKilobytes"
-        ],
-        "conditions": {
-          "skuTier": "Basic"
-        }
-      },
-      {
-        "resourceType": "Microsoft.Storage/storageAccounts",
-        "reason": "AVM modules set explicit compliance properties that Azure doesn't set by default",
-        "ignoredProperties": [
-          "properties.customDomain.useSubDomainName",
-          "properties.customDomain"
         ]
       },
       {
-        "resourceType": "Microsoft.Storage/storageAccounts/blobServices",
-        "reason": "AVM storage modules manage retention policies explicitly for compliance",
+        "resourceType": "Microsoft.ManagedIdentity/userAssignedIdentities",
+        "reason": "Azure auto-sets isolationScope inside properties - cannot be controlled via template",
         "ignoredProperties": [
-          "properties.deleteRetentionPolicy.allowPermanentDelete",
-          "properties.automaticSnapshotPolicyEnabled",
-          "properties.containerDeleteRetentionPolicy.allowPermanentDelete",
-          "properties.lastAccessTimeTrackingPolicy"
-        ]
-      },
-      {
-        "resourceType": "Microsoft.Storage/storageAccounts/fileServices",
-        "reason": "AVM explicitly sets enabledProtocols to SMB which is already the Azure default",
-        "ignoredProperties": [
-          "properties.enabledProtocols"
-        ]
-      },
-      {
-        "resourceType": "Microsoft.Storage/storageAccounts/fileServices/shares",
-        "reason": "AVM explicitly sets enabledProtocols and accessTier which Azure may resolve differently",
-        "ignoredProperties": [
-          "properties.enabledProtocols",
-          "properties.accessTier"
-        ]
-      },
-      {
-        "resourceType": "Microsoft.Network/publicIPAddresses",
-        "reason": "Azure automatically adds DDoS protection settings to public IPs",
-        "ignoredProperties": [
-          "properties.ddosSettings"
+          "properties"
         ]
       },
       {
         "resourceType": "Microsoft.Network/virtualNetworks",
-        "reason": "Azure sets private endpoint policies when private endpoints are created",
+        "reason": "Azure sets privateEndpointVNetPolicies when private endpoints exist - platform behavior",
         "ignoredProperties": [
           "properties.privateEndpointVNetPolicies"
         ]
       },
       {
         "resourceType": "Microsoft.Network/virtualNetworks/subnets",
-        "reason": "Azure sets privateEndpointNetworkPolicies to Disabled when private endpoints are created, but AVM defaults to Enabled",
+        "reason": "Azure changes privateEndpointNetworkPolicies when private endpoints are created - platform behavior",
         "ignoredProperties": [
           "properties.privateEndpointNetworkPolicies"
-        ]
-      },
-      {
-        "resourceType": "Microsoft.KeyVault/vaults",
-        "reason": "Azure automatically adds platform properties to Key Vaults",
-        "ignoredProperties": [
-          "properties.createMode",
-          "properties.networkAcls"
-        ]
-      },
-      {
-        "resourceType": "Microsoft.ManagedIdentity/userAssignedIdentities",
-        "reason": "Azure sets isolationScope on managed identities automatically",
-        "ignoredProperties": [
-          "properties",
-          "properties.isolationScope"
-        ]
-      },
-      {
-        "resourceType": "Microsoft.DBforPostgreSQL/flexibleServers",
-        "reason": "Azure sets default values for PostgreSQL that are not in template",
-        "ignoredProperties": [
-          "properties.authConfig.activeDirectoryAuth",
-          "properties.storage.iops"
-        ]
-      },
-      {
-        "resourceType": "Microsoft.App/containerApps",
-        "reason": "Azure sets container app defaults and resolves ARM template functions to actual values",
-        "ignoredProperties": [
-          "properties.configuration.maxInactiveRevisions",
-          "properties.template.volumes.0.storageType"
         ]
       }
     ],
@@ -106,18 +38,6 @@
       {
         "propertyPattern": "properties.provisioningState",
         "reason": "Azure managed property that varies during deployment lifecycle"
-      },
-      {
-        "propertyPattern": "properties.createdAt",
-        "reason": "Azure managed timestamp property"
-      },
-      {
-        "propertyPattern": "properties.updatedAt", 
-        "reason": "Azure managed timestamp property"
-      },
-      {
-        "propertyPattern": "properties.principalId",
-        "reason": "ARM resolves principalId references to actual GUIDs - not real drift"
       }
     ]
   }
