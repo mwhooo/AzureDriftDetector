@@ -7,6 +7,10 @@ namespace AzureDriftDetector.Services;
 public class DriftIgnoreService
 {
     private readonly DriftIgnoreConfiguration _ignoreConfig;
+    
+    // Track which rules have been used for reporting unused rules
+    private readonly HashSet<string> _usedResourceRules = new();
+    private readonly HashSet<string> _usedGlobalPatterns = new();
 
     public DriftIgnoreService(string? ignoreConfigPath = null)
     {
@@ -124,6 +128,9 @@ public class DriftIgnoreService
             Console.WriteLine($"📊 Filtered {ignoredCount} ignored drift(s) out of {totalDriftCount} total drift(s)");
         }
 
+        // Report unused rules if any
+        ReportUnusedRules();
+
         if (filteredResult.HasDrift)
         {
             filteredResult.Summary = $"Configuration drift detected in {filteredResult.ResourceDrifts.Count} resource(s) with {remainingDriftCount} property difference(s).";
@@ -136,6 +143,53 @@ public class DriftIgnoreService
         }
 
         return filteredResult;
+    }
+
+    private void ReportUnusedRules()
+    {
+        var showFiltered = Environment.GetEnvironmentVariable("SHOW_FILTERED") == "True";
+        if (!showFiltered) return;
+
+        var unusedResourceRules = new List<string>();
+        var unusedGlobalPatterns = new List<string>();
+
+        // Check for unused resource rules
+        foreach (var resourceRule in _ignoreConfig.IgnorePatterns.Resources)
+        {
+            foreach (var property in resourceRule.IgnoredProperties)
+            {
+                var ruleKey = $"{resourceRule.ResourceType}:{property}";
+                if (!_usedResourceRules.Contains(ruleKey))
+                {
+                    unusedResourceRules.Add($"{resourceRule.ResourceType} - {property}");
+                }
+            }
+        }
+
+        // Check for unused global patterns
+        foreach (var globalPattern in _ignoreConfig.IgnorePatterns.GlobalPatterns)
+        {
+            if (!_usedGlobalPatterns.Contains(globalPattern.PropertyPattern))
+            {
+                unusedGlobalPatterns.Add(globalPattern.PropertyPattern);
+            }
+        }
+
+        if (unusedResourceRules.Count > 0 || unusedGlobalPatterns.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"📋 Unused ignore rules (consider removing from drift-ignore.json):");
+            
+            foreach (var rule in unusedResourceRules)
+            {
+                Console.WriteLine($"   • Resource: {rule}");
+            }
+            
+            foreach (var pattern in unusedGlobalPatterns)
+            {
+                Console.WriteLine($"   • Global: {pattern}");
+            }
+        }
     }
 
     private bool ShouldIgnorePropertyDrift(ResourceDrift resourceDrift, PropertyDrift propertyDrift)
@@ -170,6 +224,7 @@ public class DriftIgnoreService
         {
             if (MatchesPattern(propertyDrift.PropertyPath, globalPattern.PropertyPattern))
             {
+                _usedGlobalPatterns.Add(globalPattern.PropertyPattern);
                 return (true, $"Global pattern match: {globalPattern.PropertyPattern} - {globalPattern.Reason}");
             }
         }
@@ -195,6 +250,7 @@ public class DriftIgnoreService
             {
                 if (MatchesPattern(propertyDrift.PropertyPath, ignoredProperty))
                 {
+                    _usedResourceRules.Add($"{resourceRule.ResourceType}:{ignoredProperty}");
                     return (true, $"Resource rule: {resourceRule.ResourceType} - {resourceRule.Reason}");
                 }
             }
