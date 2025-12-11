@@ -440,7 +440,16 @@ public class WhatIfJsonService
                 {
                     var referencedFile = match.Groups[1].Value;
                     var directory = Path.GetDirectoryName(bicepparamFilePath) ?? "";
-                    return Path.GetFullPath(Path.Combine(directory, referencedFile));
+                    var fullPath = Path.GetFullPath(Path.Combine(directory, referencedFile));
+                    
+                    // Security: Validate the resolved path is within the expected directory
+                    var baseDirectory = Path.GetFullPath(directory);
+                    if (!fullPath.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException($"Referenced file path '{referencedFile}' resolves outside the base directory.");
+                    }
+                    
+                    return fullPath;
                 }
             }
         }
@@ -478,9 +487,9 @@ public class WhatIfJsonService
                     return path;
                 }
             }
-            catch
+            catch (Exception)
             {
-                // Try next path
+                // Expected when az CLI is not found at this path; try next
             }
         }
 
