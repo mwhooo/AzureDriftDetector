@@ -49,7 +49,6 @@ public class ReportingService
         foreach (var resourceDrift in result.ResourceDrifts)
         {
             Console.WriteLine($"{(simpleOutput ? "[RESOURCE]" : "🔴")} {resourceDrift.ResourceType} - {resourceDrift.ResourceName}");
-            Console.WriteLine($"   Resource ID: {resourceDrift.ResourceId}");
             Console.WriteLine($"   Property Drifts: {resourceDrift.PropertyDrifts.Count}");
             Console.WriteLine();
 
@@ -70,13 +69,70 @@ public class ReportingService
                 };
 
                 Console.WriteLine($"   {icon} {propertyDrift.PropertyPath} ({propertyDrift.Type})");
-                Console.WriteLine($"      Expected: {FormatValue(propertyDrift.ExpectedValue)}");
-                Console.WriteLine($"      Actual:   {FormatValue(propertyDrift.ActualValue)}");
+                WriteAlignedValue("Expected", propertyDrift.ExpectedValue);
+                WriteAlignedValue("Actual", propertyDrift.ActualValue);
                 Console.WriteLine();
             }
         }
 
         Console.WriteLine(new string('=', 60));
+    }
+
+    private void WriteAlignedValue(string label, object? value)
+    {
+        const string indent = "      ";  // 6 spaces for base alignment
+        
+        var formattedLabel = label == "Expected" ? "Expected:" : "Actual:  ";
+        var formattedValue = FormatValueForConsole(value);
+        
+        if (formattedValue.Contains('\n'))
+        {
+            // Multi-line value - put on next line with proper indentation
+            Console.WriteLine($"{indent}{formattedLabel}");
+            foreach (var line in formattedValue.Split('\n').Where(l => !string.IsNullOrWhiteSpace(l)))
+            {
+                Console.WriteLine($"{indent}  {line.TrimEnd()}");
+            }
+        }
+        else
+        {
+            // Single line value - inline
+            Console.WriteLine($"{indent}{formattedLabel} {formattedValue}");
+        }
+    }
+
+    private string FormatValueForConsole(object? value)
+    {
+        if (value == null) return "null";
+        
+        if (value is string str)
+        {
+            // Check if it's JSON
+            if ((str.StartsWith("{") && str.EndsWith("}")) || 
+                (str.StartsWith("[") && str.EndsWith("]")))
+            {
+                try
+                {
+                    var parsed = JToken.Parse(str);
+                    return parsed.ToString(Formatting.Indented);
+                }
+                catch (JsonReaderException)
+                {
+                    // Not valid JSON, return as-is
+                }
+            }
+            
+            // Truncate long strings
+            if (str.Length > 80)
+            {
+                return $"\"{str[..77]}...\"";
+            }
+            
+            return str == "not set" ? "not set" : $"\"{str}\"";
+        }
+        
+        // For objects/arrays, serialize with indentation
+        return JsonConvert.SerializeObject(value, Formatting.Indented);
     }
 
     private async Task GenerateJsonReportAsync(DriftDetectionResult result)

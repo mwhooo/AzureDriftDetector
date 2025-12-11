@@ -7,6 +7,10 @@ namespace AzureDriftDetector.Services;
 public class DriftIgnoreService
 {
     private readonly DriftIgnoreConfiguration _ignoreConfig;
+    
+    // Track which rules have been used for reporting unused rules
+    private readonly HashSet<string> _usedResourceRules = new();
+    private readonly HashSet<string> _usedGlobalPatterns = new();
 
     public DriftIgnoreService(string? ignoreConfigPath = null)
     {
@@ -63,6 +67,7 @@ public class DriftIgnoreService
         var ignoredCount = 0;
         var totalDriftCount = 0;
         var reportedIgnores = new HashSet<string>(); // Track what we've already reported
+        var showFiltered = Environment.GetEnvironmentVariable("SHOW_FILTERED") == "True";
 
         foreach (var resourceDrift in originalResult.ResourceDrifts)
         {
@@ -72,7 +77,9 @@ public class DriftIgnoreService
             {
                 totalDriftCount++;
                 
-                if (!ShouldIgnorePropertyDrift(resourceDrift, propertyDrift))
+                var (shouldIgnore, ignoreReason) = ShouldIgnorePropertyDriftWithReason(resourceDrift, propertyDrift);
+                
+                if (!shouldIgnore)
                 {
                     filteredPropertyDrifts.Add(propertyDrift);
                 }
@@ -83,7 +90,22 @@ public class DriftIgnoreService
                     var ignoreKey = $"{resourceDrift.ResourceType}/{resourceDrift.ResourceName}:{propertyDrift.PropertyPath}";
                     if (reportedIgnores.Add(ignoreKey))
                     {
-                        Console.WriteLine($"🔇 Ignoring drift: {resourceDrift.ResourceType}/{resourceDrift.ResourceName} - {propertyDrift.PropertyPath}");
+                        if (showFiltered)
+                        {
+                            // Detailed output for audit mode
+                            var expectedStr = propertyDrift.ExpectedValue?.ToString() ?? "";
+                            var actualStr = propertyDrift.ActualValue?.ToString() ?? "";
+                            Console.WriteLine($"🔇 Ignoring drift: {resourceDrift.ResourceType}/{resourceDrift.ResourceName} - {propertyDrift.PropertyPath}");
+                            Console.WriteLine($"   Reason: {ignoreReason}");
+                            var expectedTruncated = expectedStr.Length > 80 ? expectedStr[..80] + "..." : expectedStr;
+                            var actualTruncated = actualStr.Length > 80 ? actualStr[..80] + "..." : actualStr;
+                            Console.WriteLine($"   Expected: {expectedTruncated}");
+                            Console.WriteLine($"   Actual: {actualTruncated}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"🔇 Ignoring drift: {resourceDrift.ResourceType}/{resourceDrift.ResourceName} - {propertyDrift.PropertyPath}");
+                        }
                     }
                 }
             }
@@ -110,6 +132,9 @@ public class DriftIgnoreService
             Console.WriteLine($"📊 Filtered {ignoredCount} ignored drift(s) out of {totalDriftCount} total drift(s)");
         }
 
+        // Report unused rules if any
+        ReportUnusedRules();
+
         if (filteredResult.HasDrift)
         {
             filteredResult.Summary = $"Configuration drift detected in {filteredResult.ResourceDrifts.Count} resource(s) with {remainingDriftCount} property difference(s).";
@@ -124,14 +149,75 @@ public class DriftIgnoreService
         return filteredResult;
     }
 
+    private void ReportUnusedRules()
+    {
+        var showFiltered = Environment.GetEnvironmentVariable("SHOW_FILTERED") == "True";
+        if (!showFiltered) return;
+
+        // Check for unused resource rules using LINQ
+        var unusedResourceRules = _ignoreConfig.IgnorePatterns.Resources
+            .SelectMany(r => r.IgnoredProperties
+                .Where(p => !_usedResourceRules.Contains($"{r.ResourceType}:{p}"))
+                .Select(p => $"{r.ResourceType} - {p}"))
+            .ToList();
+
+        // Check for unused global patterns using LINQ
+        var unusedGlobalPatterns = _ignoreConfig.IgnorePatterns.GlobalPatterns
+            .Where(gp => !_usedGlobalPatterns.Contains(gp.PropertyPattern))
+            .Select(gp => gp.PropertyPattern)
+            .ToList();
+
+        if (unusedResourceRules.Count > 0 || unusedGlobalPatterns.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"📋 Unused ignore rules (consider removing from drift-ignore.json):");
+            
+            foreach (var rule in unusedResourceRules)
+            {
+                Console.WriteLine($"   • Resource: {rule}");
+            }
+            
+            foreach (var pattern in unusedGlobalPatterns)
+            {
+                Console.WriteLine($"   • Global: {pattern}");
+            }
+        }
+    }
+
     private bool ShouldIgnorePropertyDrift(ResourceDrift resourceDrift, PropertyDrift propertyDrift)
     {
+        var (shouldIgnore, _) = ShouldIgnorePropertyDriftWithReason(resourceDrift, propertyDrift);
+        return shouldIgnore;
+    }
+
+    private (bool shouldIgnore, string reason) ShouldIgnorePropertyDriftWithReason(ResourceDrift resourceDrift, PropertyDrift propertyDrift)
+    {
+        // Check if this is an empty/structural comparison - not meaningful drift
+        // These are container nodes in JSON arrays where the real changes are in children
+        if (IsEmptyValueComparison(propertyDrift.ExpectedValue?.ToString(), propertyDrift.ActualValue?.ToString()))
+        {
+            return (true, "Empty/structural comparison - both values are empty (container node in nested JSON)");
+        }
+
+        // Check if this is an ARM template expression comparison
+        // What-if shows unresolved ARM expressions like "[parameters('tenantId')]" 
+        // while Azure has the actual resolved values.
+        // 
+        // IMPORTANT: This assumes the parameter/variable values haven't changed since deployment.
+        // If you've changed parameter values, you should redeploy to apply those changes.
+        // The what-if comparison is "what template WILL deploy" vs "what Azure HAS now".
+        if (IsArmExpressionComparison(propertyDrift.ExpectedValue?.ToString(), propertyDrift.ActualValue?.ToString()))
+        {
+            return (true, "ARM template expression - expected value is unresolved ARM function (will resolve at deployment)");
+        }
+
         // Check global patterns first
         foreach (var globalPattern in _ignoreConfig.IgnorePatterns.GlobalPatterns)
         {
             if (MatchesPattern(propertyDrift.PropertyPath, globalPattern.PropertyPattern))
             {
-                return true;
+                _usedGlobalPatterns.Add(globalPattern.PropertyPattern);
+                return (true, $"Global pattern match: {globalPattern.PropertyPattern} - {globalPattern.Reason}");
             }
         }
 
@@ -156,12 +242,13 @@ public class DriftIgnoreService
             {
                 if (MatchesPattern(propertyDrift.PropertyPath, ignoredProperty))
                 {
-                    return true;
+                    _usedResourceRules.Add($"{resourceRule.ResourceType}:{ignoredProperty}");
+                    return (true, $"Resource rule: {resourceRule.ResourceType} - {resourceRule.Reason}");
                 }
             }
         }
 
-        return false;
+        return (false, "");
     }
 
     private bool MatchesResourceType(string actualResourceType, string patternResourceType)
@@ -186,6 +273,65 @@ public class DriftIgnoreService
         }
 
         return string.Equals(actualProperty, pattern, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Detects if a drift is just an ARM template expression compared to its resolved value.
+    /// What-if shows unresolved ARM expressions like "[parameters('foo')]" or "[reference(...)]"
+    /// while Azure has the actual resolved values. These are not real drifts.
+    /// </summary>
+    private bool IsArmExpressionComparison(string? expectedValue, string? actualValue)
+    {
+        if (string.IsNullOrEmpty(expectedValue) || string.IsNullOrEmpty(actualValue))
+        {
+            return false;
+        }
+
+        // Check if expected value is an ARM template expression
+        // ARM expressions start with '[' and end with ']'
+        var trimmedExpected = expectedValue.Trim();
+        if (trimmedExpected.StartsWith("[") && trimmedExpected.EndsWith("]"))
+        {
+            // Check for common ARM functions that get resolved to actual values
+            var armFunctions = new[]
+            {
+                "[parameters(",
+                "[reference(",
+                "[variables(",
+                "[concat(",
+                "[format(",
+                "[subscription(",
+                "[resourceGroup(",
+                "[resourceId(",
+                "[createObject(",
+                "[createArray(",
+                "[union(",
+                "[coalesce(",
+                "[if(",
+                "[uniqueString("
+            };
+
+            if (armFunctions.Any(f => trimmedExpected.StartsWith(f, StringComparison.OrdinalIgnoreCase)))
+            {
+                // This is an ARM expression being compared to a resolved value - not real drift
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detects if both expected and actual values are empty or null.
+    /// These are structural markers from nested JSON parsing, not meaningful drifts.
+    /// </summary>
+    private bool IsEmptyValueComparison(string? expectedValue, string? actualValue)
+    {
+        var expectedEmpty = string.IsNullOrWhiteSpace(expectedValue);
+        var actualEmpty = string.IsNullOrWhiteSpace(actualValue);
+        
+        // If both are empty, this is a structural comparison, not real drift
+        return expectedEmpty && actualEmpty;
     }
 
     public void AddIgnoreRule(string resourceType, string propertyPath, string reason)

@@ -1,51 +1,36 @@
 {
   "ignorePatterns": {
-    "description": "Configuration to suppress known false positive drift detections",
+    "description": "Ignore patterns for Azure platform behaviors that cannot be controlled via templates",
     "resources": [
       {
         "resourceType": "Microsoft.ServiceBus/namespaces/queues",
-        "reason": "Azure Service Bus Basic tier retains premium properties after deployment",
+        "reason": "Azure Service Bus sets default values that cannot be nullified in template",
         "ignoredProperties": [
           "properties.autoDeleteOnIdle",
-          "properties.defaultMessageTimeToLive", 
+          "properties.defaultMessageTimeToLive",
           "properties.duplicateDetectionHistoryTimeWindow",
           "properties.maxMessageSizeInKilobytes"
-        ],
-        "conditions": {
-          "skuTier": "Basic"
-        }
-      },
-      {
-        "resourceType": "Microsoft.Storage/storageAccounts",
-        "reason": "AVM modules set explicit compliance properties that Azure doesn't set by default",
-        "ignoredProperties": [
-          "properties.customDomain.useSubDomainName",
-          "properties.customDomain"
         ]
       },
       {
-        "resourceType": "Microsoft.Storage/storageAccounts/blobServices",
-        "reason": "AVM storage modules manage retention policies explicitly for compliance",
+        "resourceType": "Microsoft.ManagedIdentity/userAssignedIdentities",
+        "reason": "Azure auto-sets isolationScope inside properties - cannot be controlled via template",
         "ignoredProperties": [
-          "properties.deleteRetentionPolicy.allowPermanentDelete",
-          "properties.automaticSnapshotPolicyEnabled",
-          "properties.containerDeleteRetentionPolicy.allowPermanentDelete",
-          "properties.lastAccessTimeTrackingPolicy"
+          "properties"
         ]
       },
       {
-        "resourceType": "Microsoft.Network/publicIPAddresses",
-        "reason": "Azure automatically adds DDoS protection settings to public IPs",
+        "resourceType": "Microsoft.Network/virtualNetworks",
+        "reason": "Azure sets privateEndpointVNetPolicies when private endpoints exist - platform behavior",
         "ignoredProperties": [
-          "properties.ddosSettings"
+          "properties.privateEndpointVNetPolicies"
         ]
       },
       {
-        "resourceType": "Microsoft.KeyVault/vaults",
-        "reason": "Azure automatically adds platform properties to Key Vaults",
+        "resourceType": "Microsoft.Network/virtualNetworks/subnets",
+        "reason": "Azure changes privateEndpointNetworkPolicies when private endpoints are created - platform behavior",
         "ignoredProperties": [
-          "properties.createMode",
-          "properties.networkAcls"
+          "properties.privateEndpointNetworkPolicies"
         ]
       }
     ],
@@ -53,14 +38,6 @@
       {
         "propertyPattern": "properties.provisioningState",
         "reason": "Azure managed property that varies during deployment lifecycle"
-      },
-      {
-        "propertyPattern": "properties.createdAt",
-        "reason": "Azure managed timestamp property"
-      },
-      {
-        "propertyPattern": "properties.updatedAt", 
-        "reason": "Azure managed timestamp property"
       }
     ]
   }

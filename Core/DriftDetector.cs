@@ -10,6 +10,7 @@ public class DriftDetector
     private readonly ComparisonService _comparisonService;
     private readonly ReportingService _reportingService;
     private readonly DriftIgnoreService? _ignoreService;
+    private readonly WhatIfJsonService _whatIfJsonService;
 
     public DriftDetector(string? ignoreConfigPath = null)
     {
@@ -18,6 +19,7 @@ public class DriftDetector
         _ignoreService = !string.IsNullOrEmpty(ignoreConfigPath) ? new DriftIgnoreService(ignoreConfigPath) : new DriftIgnoreService();
         _comparisonService = new ComparisonService(_ignoreService);
         _reportingService = new ReportingService();
+        _whatIfJsonService = new WhatIfJsonService(_ignoreService);
     }
 
     public async Task<DriftDetectionResult> DetectDriftAsync(
@@ -30,23 +32,19 @@ public class DriftDetector
 
         try
         {
-            // Step 1: Convert Bicep to ARM JSON template and run what-if to detect drift
-            bool simpleOutput = Environment.GetEnvironmentVariable("SIMPLE_OUTPUT") == "True";
-            Console.WriteLine($"{(simpleOutput ? "[BICEP]" : "⚙️")}  Converting Bicep template to ARM JSON...");
-            var expectedTemplate = await _bicepService.ConvertBicepToArmAsync(bicepFile.FullName, resourceGroup);
+            // Use the new JSON-based what-if service for more reliable drift detection
+            var result = await _whatIfJsonService.RunWhatIfAsync(bicepFile.FullName, resourceGroup);
 
-            // Step 2: Analyze what-if results for drift detection
-            // Note: liveResources is only used for fallback if what-if is not available
-            var liveResources = await _azureCliService.GetResourcesAsync(resourceGroup);
-
-            // Step 3: Compare expected vs actual using what-if results
-            var result = _comparisonService.CompareResources(expectedTemplate, liveResources);
-
-            // Step 4: Generate report
+            // Generate report
             Console.WriteLine("📊 Generating drift report...");
             await _reportingService.GenerateReportAsync(result, outputFormat);
 
             return result;
+        }
+        catch (InvalidOperationException)
+        {
+            // Re-throw validation errors without additional logging (already logged by WhatIfJsonService)
+            throw;
         }
         catch (Exception ex)
         {

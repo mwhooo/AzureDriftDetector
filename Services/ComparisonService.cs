@@ -31,6 +31,10 @@ public class ComparisonService
         // Fall back to manual comparison if what-if not used
         var bicepService = new BicepService();
         var expectedResources = bicepService.ExtractResourcesFromTemplate(expectedTemplate);
+        
+        // Deduplicate extracted resources by type (since names might be parameterized)
+        // This prevents reporting the same resource multiple times when it appears in multiple modules
+        expectedResources = DeduplicateExtractedResources(expectedResources);
 
         Console.WriteLine($"📋 Comparing {expectedResources.Count} expected resources with {liveResources.Count} live resources");
 
@@ -101,6 +105,9 @@ public class ComparisonService
             }
         }
 
+        // Consolidate duplicate resources by merging their property drifts
+        result.ResourceDrifts = ConsolidateDuplicateResources(result.ResourceDrifts);
+        
         result.HasDrift = result.ResourceDrifts.Any();
         result.Summary = GenerateSummary(result);
 
@@ -1436,10 +1443,91 @@ public class ComparisonService
             result.ResourceDrifts.Add(currentResourceDrift);
         }
         
+        // Consolidate duplicate resources by merging their property drifts
+        result.ResourceDrifts = ConsolidateDuplicateResources(result.ResourceDrifts);
+        
         result.HasDrift = result.ResourceDrifts.Any();
         result.Summary = GenerateSummary(result);
         
         return result;
+    }
+
+    /// <summary>
+    /// Consolidates duplicate resources by merging their property drifts into a single entry.
+    /// This handles cases where the same resource appears multiple times in what-if output
+    /// (e.g., VNet appearing once per subnet, or nested resources being reported separately).
+    /// </summary>
+    private List<ResourceDrift> ConsolidateDuplicateResources(List<ResourceDrift> resourceDrifts)
+    {
+        var consolidated = new Dictionary<string, ResourceDrift>(StringComparer.OrdinalIgnoreCase);
+        
+        foreach (var drift in resourceDrifts)
+        {
+            // Create a unique key based on resource type and name
+            var key = $"{drift.ResourceType}|{drift.ResourceName}";
+            
+            if (consolidated.TryGetValue(key, out var existingDrift))
+            {
+                // Merge property drifts, avoiding duplicates
+                var existingPaths = existingDrift.PropertyDrifts
+                    .Select(pd => pd.PropertyPath)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                
+                foreach (var propertyDrift in drift.PropertyDrifts)
+                {
+                    if (!existingPaths.Contains(propertyDrift.PropertyPath))
+                    {
+                        existingDrift.PropertyDrifts.Add(propertyDrift);
+                        existingPaths.Add(propertyDrift.PropertyPath);
+                    }
+                }
+                
+                // Update ResourceId if the existing one is empty
+                if (string.IsNullOrEmpty(existingDrift.ResourceId) && !string.IsNullOrEmpty(drift.ResourceId))
+                {
+                    existingDrift.ResourceId = drift.ResourceId;
+                }
+            }
+            else
+            {
+                // First occurrence - add to dictionary
+                consolidated[key] = new ResourceDrift
+                {
+                    ResourceType = drift.ResourceType,
+                    ResourceName = drift.ResourceName,
+                    ResourceId = drift.ResourceId,
+                    PropertyDrifts = drift.PropertyDrifts.ToList()
+                };
+            }
+        }
+        
+        return consolidated.Values.ToList();
+    }
+
+    /// <summary>
+    /// Deduplicates extracted resources by resource type before comparison.
+    /// When the same resource type appears multiple times in the template (e.g., from different modules),
+    /// we only need to compare it once since all instances represent the same Azure resource.
+    /// </summary>
+    private List<JObject> DeduplicateExtractedResources(List<JObject> resources)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var deduplicated = new List<JObject>();
+        
+        foreach (var resource in resources)
+        {
+            var resourceType = resource["type"]?.ToString() ?? "";
+            
+            // For resources with unresolved parameter names, deduplicate by type only
+            // since they all represent the same Azure resource type
+            if (!seen.Contains(resourceType))
+            {
+                seen.Add(resourceType);
+                deduplicated.Add(resource);
+            }
+        }
+        
+        return deduplicated;
     }
 
     private (string type, string name) ExtractResourceInfoFromWhatIfLine(string line)
@@ -1485,7 +1573,6 @@ public class ComparisonService
                     // Validate that we have meaningful values
                     if (string.IsNullOrWhiteSpace(resourceName))
                     {
-                        Console.WriteLine($"📝 Skipping what-if line with empty resource name: {line.Trim()}");
                         return (SKIP_MARKER, SKIP_MARKER);
                     }
                     
@@ -1494,9 +1581,8 @@ public class ComparisonService
             }
         }
         
-        // Log the problematic line for debugging
-        Console.WriteLine($"📝 Could not parse what-if line, skipping: {line.Trim()}");
-        return (SKIP_MARKER, SKIP_MARKER); // Use special marker instead of unknown
+        // Silently skip unparseable lines (likely property details, not resources)
+        return (SKIP_MARKER, SKIP_MARKER);
     }
 
     private PropertyDrift? ExtractPropertyDriftFromWhatIfLine(string line)

@@ -1,5 +1,45 @@
 # Release Notes
 
+## Version 3.7.0 - JSON-Based What-If Parsing & Audit Mode (2025-12-11)
+
+### 🎯 Summary
+Major reliability improvement that switches from fragile text-based what-if parsing to robust JSON-based parsing, with new audit transparency features.
+
+### ✨ New Features
+
+#### 🔧 JSON-Based What-If Parsing
+- **Native JSON Output**: Uses `az deployment group what-if --no-pretty-print -o json` for structured data
+- **Reliable Parsing**: Eliminates regex/text parsing fragility that caused false positives
+- **Container Node Skipping**: Automatically skips structural container nodes (Array types, intermediate path segments)
+- **ARM Expression Detection**: Intelligently filters unresolved ARM functions like `[parameters('...')]` and `[reference('...')]`
+
+#### 🔍 Audit Mode (`--show-filtered`)
+- **New CLI Option**: `--show-filtered` flag enables detailed audit output
+- **Reason Tracking**: Each filtered drift shows why it was ignored
+- **Unused Rule Detection**: Reports which drift-ignore.json rules weren't matched
+- **Transparency**: Full visibility into what's being filtered and why
+
+### 🐛 Bug Fixes & Improvements
+- **Cleaner Console Output**: Removed verbose Resource ID from drift reports (type + name is sufficient)
+- **Better JSON Alignment**: Multi-line JSON values properly indented in console output
+- **Nested Resource Parsing**: Fixed resource ID parsing for nested resources (subnets, blob services, etc.)
+
+### 🔧 Technical Details
+- Added `WhatIfJsonService.cs` for JSON-based what-if parsing
+- Added `IsArmExpressionComparison()` to detect ARM template functions
+- Added `IsEmptyValueComparison()` to filter structural container nodes
+- Added `ShouldIgnorePropertyDriftWithReason()` for reason tracking
+- Added unused rule tracking in `DriftIgnoreService`
+- Updated `ReportingService` with improved console formatting
+
+### 📝 CLI Changes
+```bash
+# New --show-filtered option for audit transparency
+dotnet run -- --bicep-file template.bicep --resource-group myRG --show-filtered
+```
+
+---
+
 ## Version 3.6.0 - Duplicate Ignore Message Fix (2025-11-21)
 
 ### 🎯 Summary
